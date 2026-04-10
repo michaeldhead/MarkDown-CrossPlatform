@@ -21,6 +21,7 @@
     <KeyBinding Gesture="Ctrl+Shift+T" Command="{Binding SetViewModeSplitCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding SetViewModePreviewCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPaletteCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding PrintCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -110,6 +111,13 @@
                   Width="NaN" Height="26" Padding="8,0"
                   ToolTip.Tip="Export">
             <TextBlock Text="Export…" FontSize="11" Foreground="{DynamicResource accent}" />
+          </Button>
+          <Button Classes="icon-rail-btn"
+                  Command="{Binding PrintCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Print document (Ctrl+Shift+P)"
+                  Margin="4,0,0,0">
+            <TextBlock Text="Print" FontSize="11" Foreground="{DynamicResource accent}" />
           </Button>
         </StackPanel>
       </Grid>
