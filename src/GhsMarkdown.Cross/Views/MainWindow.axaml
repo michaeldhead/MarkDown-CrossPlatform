@@ -135,11 +135,11 @@
                   Margin="4,0,0,0">
             <TextBlock Text="Print" FontSize="11" Foreground="{DynamicResource accent}" />
           </Button>
+          <Border Width="1" Height="16" Background="{DynamicResource border}" Margin="8,0" />
           <ToggleButton Classes="focus-toggle"
                         IsChecked="{Binding IsFocusModeActive, Mode=OneWay}"
                         Command="{Binding ToggleFocusModeCommand}"
-                        ToolTip.Tip="Toggle Focus Mode (Ctrl+Shift+F)"
-                        Margin="4,0,0,0">
+                        ToolTip.Tip="Toggle Focus Mode (Ctrl+Shift+F)">
             <TextBlock Text="Focus" FontSize="11" Foreground="{DynamicResource accent}" />
           </ToggleButton>
         </StackPanel>
