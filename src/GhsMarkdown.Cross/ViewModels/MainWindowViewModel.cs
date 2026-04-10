@@ -206,6 +206,13 @@ public partial class MainWindowViewModel : ObservableObject
     [RelayCommand]
     private void OpenExport() => ExportPanel.Open();
 
+    // ─── Print ──────────────────────────────────────────────────────────────
+
+    private Action? _printAction;
+    public IRelayCommand PrintCommand { get; }
+
+    public void SetPrintAction(Action printAction) => _printAction = printAction;
+
     [RelayCommand]
     private void OpenPalette() => CommandPalette.Open();
 
@@ -247,6 +254,7 @@ public partial class MainWindowViewModel : ObservableObject
         CommandPalette   = commandPalette;
         Timeline         = timelineVm;
         ExportPanel      = exportPanel;
+        PrintCommand     = new RelayCommand(() => _printAction?.Invoke());
 
         // Auto-switch to Edit mode when export panel opens, restore on close
         ExportPanel.Opened += (_, _) =>
@@ -395,6 +403,9 @@ public partial class MainWindowViewModel : ObservableObject
         r.Register(new CommandDescriptor("export.htmlStyled", "Export as HTML (Styled)",       "Actions", () => ExportPanel.OpenWithFormat(Models.ExportFormat.HtmlStyled)));
         r.Register(new CommandDescriptor("export.htmlClean",  "Export as HTML (Clean)",        "Actions", () => ExportPanel.OpenWithFormat(Models.ExportFormat.HtmlClean)));
         r.Register(new CommandDescriptor("export.plainText",  "Export as Plain Text",          "Actions", () => ExportPanel.OpenWithFormat(Models.ExportFormat.PlainText)));
+
+        // Print
+        r.Register(new CommandDescriptor("file.print", "Print\u2026", "Actions", () => PrintCommand.Execute(null), "Ctrl+Shift+P"));
 
         // Settings
         r.Register(new CommandDescriptor("settings.theme.dark",  "Theme: GHS Dark",  "Settings", () => SetTheme("Dark")));

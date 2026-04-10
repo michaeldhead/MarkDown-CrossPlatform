@@ -531,6 +531,12 @@ public partial class MainWindow : Window
             if (_previewVm is not null)
                 NavigateWebView(_previewVm.PreviewHtml);
         };
+
+        _mainVm?.SetPrintAction(() =>
+        {
+            if (_webViewReady && _webView is not null)
+                _ = _webView.InvokeScript("window.print()");
+        });
     }
 
     private void NavigateWebView(string html)
