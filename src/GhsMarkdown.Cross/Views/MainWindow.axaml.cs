@@ -305,14 +305,11 @@ public partial class MainWindow : Window
         _editor = this.FindControl<TextEditor>("MarkdownEditor");
         if (_editor is null) return;
 
-        // Syntax highlighting deferred to BL-12 (v1.1).
-        // AvaloniaEdit 12.0.0 rejects ^-anchored Rule patterns.
-        // Requires redesign using Span-based patterns without ^ anchors.
-        // var uri    = new Uri("avares://GhsMarkdown.Cross/Assets/MarkdownSyntax.xshd");
-        // var stream = AssetLoader.Open(uri);
-        // using var reader = XmlReader.Create(stream);
-        // var xshd = HighlightingLoader.LoadXshd(reader);
-        // _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
+        var uri    = new Uri("avares://GhsMarkdown.Cross/Assets/MarkdownSyntax.xshd");
+        var stream = AssetLoader.Open(uri);
+        using var reader = XmlReader.Create(stream);
+        var xshd = HighlightingLoader.LoadXshd(reader);
+        _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
 
         _editor.Options.ShowTabs                = false;
         _editor.Options.IndentationSize         = 2;
