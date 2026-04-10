@@ -61,8 +61,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private string _currentThemeName = "GHS Dark";
 
     public bool IsThemeDark  => _themeService.CurrentTheme == GhsTheme.Dark;
-    public bool IsThemeInk   => _themeService.CurrentTheme == GhsTheme.Ink;
-    public bool IsThemeGlass => _themeService.CurrentTheme == GhsTheme.Glass;
+    public bool IsThemeLight => _themeService.CurrentTheme == GhsTheme.Light;
     public bool IsThemeAuto  => _themeService.CurrentTheme == GhsTheme.Auto;
 
     // ─── Window title ────────────────────────────────────────────────────────
@@ -299,15 +298,13 @@ public partial class MainWindowViewModel : ObservableObject
 
         CurrentThemeName = themeService.CurrentThemeName;
         OnPropertyChanged(nameof(IsThemeDark));
-        OnPropertyChanged(nameof(IsThemeInk));
-        OnPropertyChanged(nameof(IsThemeGlass));
+        OnPropertyChanged(nameof(IsThemeLight));
         OnPropertyChanged(nameof(IsThemeAuto));
         themeService.ThemeChanged += (_, _) =>
         {
             CurrentThemeName = themeService.CurrentThemeName;
             OnPropertyChanged(nameof(IsThemeDark));
-            OnPropertyChanged(nameof(IsThemeInk));
-            OnPropertyChanged(nameof(IsThemeGlass));
+            OnPropertyChanged(nameof(IsThemeLight));
             OnPropertyChanged(nameof(IsThemeAuto));
         };
 
@@ -401,8 +398,7 @@ public partial class MainWindowViewModel : ObservableObject
 
         // Settings
         r.Register(new CommandDescriptor("settings.theme.dark",  "Theme: GHS Dark",  "Settings", () => SetTheme("Dark")));
-        r.Register(new CommandDescriptor("settings.theme.ink",   "Theme: GHS Ink",   "Settings", () => SetTheme("Ink")));
-        r.Register(new CommandDescriptor("settings.theme.glass", "Theme: GHS Glass", "Settings", () => SetTheme("Glass")));
+        r.Register(new CommandDescriptor("settings.theme.light", "Theme: GHS Light", "Settings", () => SetTheme("Light")));
     }
 
     private void UpdateWindowTitle()
@@ -535,8 +531,7 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var theme = themeName switch
         {
-            "Ink"   => GhsTheme.Ink,
-            "Glass" => GhsTheme.Glass,
+            "Light" => GhsTheme.Light,
             "Auto"  => GhsTheme.Auto,
             _       => GhsTheme.Dark
         };

@@ -368,7 +368,7 @@ public partial class MainWindow : Window
     {
         if (_editor is null) return;
 
-        if (themeName == "GHS Ink")
+        if (themeName == "GHS Light")
         {
             _editor.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#1A1A1A"));
             _editor.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#F9F6F0"));

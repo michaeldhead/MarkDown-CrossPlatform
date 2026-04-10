@@ -6,13 +6,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace GhsMarkdown.Cross.Services;
 
-public enum GhsTheme { Dark, Ink, Glass, Auto }
+public enum GhsTheme { Dark, Light, Auto }
 
 public class ThemeService : ObservableObject
 {
     private static readonly Uri DarkUri  = new("avares://GhsMarkdown.Cross/Themes/GhsDark.axaml");
-    private static readonly Uri InkUri   = new("avares://GhsMarkdown.Cross/Themes/GhsInk.axaml");
-    private static readonly Uri GlassUri = new("avares://GhsMarkdown.Cross/Themes/GhsGlass.axaml");
+    private static readonly Uri LightUri = new("avares://GhsMarkdown.Cross/Themes/GhsLight.axaml");
 
     private readonly SettingsService _settingsService;
 
@@ -26,8 +25,7 @@ public class ThemeService : ObservableObject
     public string CurrentThemeName => ResolveTheme() switch
     {
         GhsTheme.Dark  => "GHS Dark",
-        GhsTheme.Ink   => "GHS Ink",
-        GhsTheme.Glass => "GHS Glass",
+        GhsTheme.Light => "GHS Light",
         _              => "GHS Dark"
     };
 
@@ -37,10 +35,13 @@ public class ThemeService : ObservableObject
         var settings = _settingsService.Load();
         _currentTheme = settings.Theme switch
         {
-            "Ink"   => GhsTheme.Ink,
-            "Glass" => GhsTheme.Glass,
-            "Auto"  => GhsTheme.Auto,
-            _       => GhsTheme.Dark
+            "Light"  => GhsTheme.Light,
+            "Ink"    => GhsTheme.Light,   // migration: old "Ink" → Light
+            "Glass"  => GhsTheme.Dark,    // migration: old "Glass" → Dark
+            "GHSInk" => GhsTheme.Light,   // migration: old saved value
+            "GHSGlass" => GhsTheme.Dark,  // migration: old saved value
+            "Auto"   => GhsTheme.Auto,
+            _        => GhsTheme.Dark
         };
     }
 
@@ -63,8 +64,7 @@ public class ThemeService : ObservableObject
     {
         return ResolveTheme() switch
         {
-            GhsTheme.Ink   => GetInkCss(),
-            GhsTheme.Glass => GetGlassCss(),
+            GhsTheme.Light => GetLightCss(),
             _              => GetDarkCss()
         };
     }
@@ -75,7 +75,7 @@ public class ThemeService : ObservableObject
             return _currentTheme;
 
         var variant = Application.Current?.ActualThemeVariant;
-        return variant == ThemeVariant.Light ? GhsTheme.Ink : GhsTheme.Dark;
+        return variant == ThemeVariant.Light ? GhsTheme.Light : GhsTheme.Dark;
     }
 
     private void ApplyTheme(GhsTheme resolved)
@@ -84,8 +84,7 @@ public class ThemeService : ObservableObject
 
         var uri = resolved switch
         {
-            GhsTheme.Ink   => InkUri,
-            GhsTheme.Glass => GlassUri,
+            GhsTheme.Light => LightUri,
             _              => DarkUri
         };
 
@@ -94,7 +93,7 @@ public class ThemeService : ObservableObject
         // Remove any existing GHS theme ResourceIncludes
         var toRemove = merged
             .OfType<Avalonia.Markup.Xaml.Styling.ResourceInclude>()
-            .Where(r => r.Source == DarkUri || r.Source == InkUri || r.Source == GlassUri)
+            .Where(r => r.Source == DarkUri || r.Source == LightUri)
             .ToList();
 
         if (_activeThemeDict is not null && !toRemove.Contains(_activeThemeDict))
@@ -153,7 +152,7 @@ public class ThemeService : ObservableObject
         .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
         """;
 
-    private static string GetInkCss() => """
+    private static string GetLightCss() => """
         :root {
           --bg-shell: #F9F6F0;
           --bg-panel: #F2EFE8;
@@ -197,47 +196,4 @@ public class ThemeService : ObservableObject
         .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
         """;
 
-    private static string GetGlassCss() => """
-        :root {
-          --bg-shell: #141414;
-          --bg-panel: rgba(24,24,24,0.75);
-          --bg-toolbar: rgba(26,26,26,0.75);
-          --bg-gutter: rgba(22,22,22,0.75);
-          --bg-editor: #141414;
-          --bg-preview: rgba(22,22,22,0.75);
-          --accent: #4A9EFF;
-          --accent-dim: rgba(30,58,95,0.85);
-          --border: #333333;
-          --border-subtle: #282828;
-          --text-primary: #E8E8E8;
-          --text-secondary: #888888;
-          --text-hint: #444444;
-          --syntax-h1: #4A9EFF;
-          --syntax-h2: #5AB865;
-          --syntax-h3: #B8954A;
-          --syntax-h4: #888888;
-          --syntax-h5: #666666;
-          --syntax-h6: #555555;
-          --syntax-code: #C792EA;
-          --active-block: rgba(13,31,53,0.85);
-          --active-border: #2A4A6A;
-        }
-        body        { background: var(--bg-preview); color: var(--text-primary); font-family: sans-serif; }
-        h1          { color: var(--syntax-h1); }
-        h2          { color: var(--syntax-h2); }
-        h3          { color: var(--syntax-h3); }
-        h4          { color: var(--syntax-h4); }
-        h5          { color: var(--syntax-h5); }
-        h6          { color: var(--syntax-h6); }
-        code        { color: var(--syntax-code); background: var(--bg-editor); padding: 2px 5px; border-radius: 3px; }
-        pre         { background: var(--bg-editor); padding: 1rem; border-radius: 6px; border-left: 3px solid var(--accent); }
-        pre code    { background: none; padding: 0; }
-        blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-secondary); margin-left: 0; }
-        a           { color: var(--accent); }
-        hr          { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
-        table       { border-collapse: collapse; width: 100%; }
-        th, td      { border: 1px solid var(--border); padding: 0.5rem 1rem; }
-        th          { background: var(--bg-panel); }
-        .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
-        """;
 }

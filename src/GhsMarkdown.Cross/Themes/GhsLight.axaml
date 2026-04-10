@@ -1,7 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- GHS Ink Theme — editorial light, cream/off-white base -->
+  <!-- GHS Light Theme — editorial light, cream/off-white base -->
 
   <SolidColorBrush x:Key="bg-shell"       Color="#F9F6F0" />
   <SolidColorBrush x:Key="bg-panel"       Color="#F2EFE8" />
@@ -29,6 +29,6 @@
   <Color x:Key="bg-panel-color"   >#F2EFE8</Color>
   <Color x:Key="accent-color"     >#1A6BC4</Color>
 
-  <x:String x:Key="ThemeName">GHS Ink</x:String>
+  <x:String x:Key="ThemeName">GHS Light</x:String>
 
 </ResourceDictionary>
