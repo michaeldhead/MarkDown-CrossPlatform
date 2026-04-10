@@ -45,7 +45,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _highlightCts;
 
     // ─── Typewriter scroll (Focus Mode) ─────────────────────────────────────
-    private System.Threading.Timer? _typewriterTimer;
+    private double _defaultCaretBorderDistance = -1;
 
     // ─── Gutter drag ──────────────────────────────────────────────────────────
     private bool   _isDraggingGutter;
@@ -76,8 +76,6 @@ public partial class MainWindow : Window
                 : DragDropEffects.None;
         });
         AddHandler(DragDrop.DropEvent, OnFileDrop);
-
-        Closing += (_, _) => _typewriterTimer?.Dispose();
     }
 
     private async void OnFileDrop(object? sender, DragEventArgs e)
@@ -366,28 +364,26 @@ public partial class MainWindow : Window
             if (_editorVm is not null)
                 _editorVm.CaretLine = line;
 
-            // Typewriter scrolling — 60ms timer fires after AvaloniaEdit's BringCaretToView
+            // Typewriter scrolling — disable auto-scroll, center ourselves
             if (_mainVm?.IsFocusModeActive == true && _editor is not null)
             {
-                _typewriterTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                _typewriterTimer = new System.Threading.Timer(_ =>
-                {
-                    Dispatcher.UIThread.Post(() =>
-                    {
-                        try
-                        {
-                            var lineNum = _editor.TextArea.Caret.Line;
-                            var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
-                            var editorHeight = _editor.Bounds.Height;
-                            if (editorHeight <= 0 || lineHeight <= 0) return;
+                SetCaretBorderDistance(_editor, 9999);
 
-                            var lineTop = (lineNum - 1) * lineHeight;
-                            var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
-                            _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
-                        }
-                        catch { }
-                    });
-                }, null, 60, Timeout.Infinite);
+                Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        var lineNum = _editor.TextArea.Caret.Line;
+                        var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
+                        var editorHeight = _editor.Bounds.Height;
+                        if (editorHeight <= 0 || lineHeight <= 0) return;
+
+                        var lineTop = (lineNum - 1) * lineHeight;
+                        var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
+                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
+                    }
+                    catch { }
+                }, DispatcherPriority.Normal);
             }
         };
     }
@@ -568,7 +564,12 @@ public partial class MainWindow : Window
                 _ = _webView.InvokeScript("window.print()");
         });
 
-        _mainVm?.SetFocusModeAction(active => ApplyFocusModeStyles(active));
+        _mainVm?.SetFocusModeAction(active =>
+        {
+            ApplyFocusModeStyles(active);
+            if (!active && _editor is not null && _defaultCaretBorderDistance >= 0)
+                SetCaretBorderDistance(_editor, _defaultCaretBorderDistance);
+        });
         if (_mainVm?.IsFocusModeActive == true)
             ApplyFocusModeStyles(true);
     }
@@ -604,6 +605,24 @@ public partial class MainWindow : Window
                 })();
             """);
         }
+    }
+
+    // ─── Caret border distance (internal in AvaloniaEdit 12) ───────────────
+
+    private static readonly System.Reflection.PropertyInfo? _caretBorderProp =
+        typeof(AvaloniaEdit.Editing.Caret).GetProperty(
+            "MinimumDistanceToViewBorder",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+    private void SetCaretBorderDistance(TextEditor editor, double value)
+    {
+        if (_caretBorderProp is null) return;
+        if (_defaultCaretBorderDistance < 0)
+        {
+            var current = _caretBorderProp.GetValue(editor.TextArea.Caret);
+            if (current is double d) _defaultCaretBorderDistance = d;
+        }
+        _caretBorderProp.SetValue(editor.TextArea.Caret, value);
     }
 
     private void NavigateWebView(string html)
