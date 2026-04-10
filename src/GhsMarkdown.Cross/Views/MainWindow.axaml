@@ -55,6 +55,8 @@
       <Setter Property="BorderThickness" Value="0" />
       <Setter Property="Padding" Value="8,0" />
       <Setter Property="Height" Value="26" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
       <Setter Property="Cursor" Value="Hand" />
     </Style>
     <Style Selector="ToggleButton.focus-toggle:checked">
