@@ -363,13 +363,25 @@ public partial class MainWindow : Window
             // Typewriter scrolling — keep active line vertically centered
             if (_mainVm?.IsFocusModeActive == true && _editor is not null)
             {
-                var visualPos = _editor.TextArea.TextView.GetVisualPosition(
-                    new AvaloniaEdit.TextViewPosition(line, 1),
-                    AvaloniaEdit.Rendering.VisualYPosition.LineMiddle);
-                var editorHeight = _editor.Bounds.Height;
-                var currentScroll = _editor.TextArea.TextView.ScrollOffset.Y;
-                var targetScroll = currentScroll + visualPos.Y - (editorHeight / 2.0);
-                _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
+                Dispatcher.UIThread.Post(() =>
+                {
+                    try
+                    {
+                        var caret = _editor.TextArea.Caret;
+                        var textView = _editor.TextArea.TextView;
+                        var editorHeight = _editor.Bounds.Height;
+                        if (editorHeight <= 0) return;
+
+                        var documentLine = _editor.Document.GetLineByNumber(caret.Line);
+                        var visualTop = textView.GetVisualTopByDocumentLine(documentLine.LineNumber);
+                        if (double.IsNaN(visualTop)) return;
+
+                        var lineHeight = textView.DefaultLineHeight;
+                        var targetScrollOffset = visualTop - (editorHeight / 2.0) + (lineHeight / 2.0);
+                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScrollOffset));
+                    }
+                    catch { /* ignore during rapid typing */ }
+                }, DispatcherPriority.Render);
             }
         };
     }
