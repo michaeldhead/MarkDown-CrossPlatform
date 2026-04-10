@@ -305,11 +305,15 @@ public partial class MainWindow : Window
         _editor = this.FindControl<TextEditor>("MarkdownEditor");
         if (_editor is null) return;
 
-        var uri    = new Uri("avares://GhsMarkdown.Cross/Assets/MarkdownSyntax.xshd");
-        var stream = AssetLoader.Open(uri);
-        using var reader = XmlReader.Create(stream);
-        var xshd = HighlightingLoader.LoadXshd(reader);
-        _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
+        // Syntax highlighting disabled — AvaloniaEdit 12 xshd limitations.
+        // Rule patterns fail on paste/Document.Replace; Span+\n End patterns
+        // fail on load ($ injected as zero-width fallback). Custom IHighlighter
+        // required. Deferred to v1.2. See docs/NOTES.md BL-12 section.
+        // var uri    = new Uri("avares://GhsMarkdown.Cross/Assets/MarkdownSyntax.xshd");
+        // var stream = AssetLoader.Open(uri);
+        // using var reader = XmlReader.Create(stream);
+        // var xshd = HighlightingLoader.LoadXshd(reader);
+        // _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
 
         _editor.Options.ShowTabs                = false;
         _editor.Options.IndentationSize         = 2;
