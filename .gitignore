@@ -1,0 +1,40 @@
+# ── Build artifacts ──────────────────────────────────────────────
+bin/
+obj/
+*.user
+
+# ── .NET publish output ──────────────────────────────────────────
+publish/
+
+# ── Visual Studio ────────────────────────────────────────────────
+.vs/
+*.suo
+*.userosscache
+*.sln.docview
+
+# ── JetBrains Rider ──────────────────────────────────────────────
+.idea/
+
+# ── Installer build artifacts ────────────────────────────────────
+installer/windows/output/
+installer/macos/publish/
+installer/macos/*.app/
+installer/macos/*.dmg
+
+# ── Claude Code ──────────────────────────────────────────────────
+.claude/
+
+# ── Internal implementation notes ────────────────────────────────
+docs/NOTES.md
+
+# ── User data generated at runtime ───────────────────────────────
+*.draft
+**/snapshots/
+
+# ── Machine-specific settings ────────────────────────────────────
+appsettings.local.json
+
+# ── OS files ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

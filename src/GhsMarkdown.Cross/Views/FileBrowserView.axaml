@@ -1,0 +1,84 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.FileBrowserView"
+             x:DataType="vm:FileBrowserViewModel">
+
+  <DockPanel>
+
+    <!-- Header -->
+    <Border DockPanel.Dock="Top" Height="36"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1">
+      <TextBlock Text="FILES"
+                 FontSize="10"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource text-hint}"
+                 VerticalAlignment="Center"
+                 Margin="12,0" />
+    </Border>
+
+    <!-- Action bar -->
+    <Border DockPanel.Dock="Bottom" Height="32"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,1,0,0">
+      <Button Content="Clear Recent"
+              FontSize="11"
+              Foreground="{DynamicResource text-secondary}"
+              Background="Transparent"
+              BorderThickness="0"
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              Cursor="Hand"
+              Command="{Binding ClearRecentCommand}" />
+    </Border>
+
+    <!-- Recent files list or empty state -->
+    <Panel>
+      <!-- Empty state -->
+      <TextBlock Text="No recent files"
+                 FontSize="12"
+                 Foreground="{DynamicResource text-hint}"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 IsVisible="{Binding !RecentFiles.Count}" />
+
+      <!-- List -->
+      <ScrollViewer IsVisible="{Binding RecentFiles.Count}">
+        <ItemsControl ItemsSource="{Binding RecentFiles}">
+          <ItemsControl.ItemTemplate>
+            <DataTemplate DataType="{x:Type vm:RecentFileViewModel}">
+              <Button Command="{Binding $parent[ItemsControl].((vm:FileBrowserViewModel)DataContext).OpenFileCommand}"
+                      CommandParameter="{Binding}"
+                      Background="Transparent"
+                      BorderThickness="0"
+                      Padding="12,6"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Left"
+                      Height="44"
+                      Cursor="Hand">
+                <Button.Styles>
+                  <Style Selector="Button:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+                  </Style>
+                </Button.Styles>
+                <StackPanel>
+                  <TextBlock Text="{Binding FileName}"
+                             FontSize="13"
+                             Foreground="{DynamicResource text-primary}" />
+                  <TextBlock Text="{Binding Directory}"
+                             FontSize="11"
+                             Foreground="{DynamicResource text-secondary}" />
+                </StackPanel>
+              </Button>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </ScrollViewer>
+    </Panel>
+
+  </DockPanel>
+
+</UserControl>

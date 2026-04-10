@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.TimelineScrubberView"
+             x:DataType="vm:TimelineViewModel">
+
+  <Border Background="{DynamicResource bg-toolbar}"
+          BorderBrush="{DynamicResource border}"
+          BorderThickness="1,0,0,0"
+          Padding="8,0,8,0">
+    <StackPanel Orientation="Horizontal"
+                VerticalAlignment="Center"
+                Spacing="6">
+      <Slider x:Name="TimelineSlider"
+              Minimum="0" Maximum="1"
+              Value="{Binding ThumbPosition, Mode=TwoWay}"
+              IsEnabled="{Binding HasSnapshots}"
+              Width="160"
+              VerticalAlignment="Center"
+              ToolTip.Tip="{Binding ThumbTooltip}" />
+      <TextBlock Text="Now"
+                 FontSize="9"
+                 Foreground="{DynamicResource text-hint}"
+                 VerticalAlignment="Center" />
+    </StackPanel>
+  </Border>
+</UserControl>

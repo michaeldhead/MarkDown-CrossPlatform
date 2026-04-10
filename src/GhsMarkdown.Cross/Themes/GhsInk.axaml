@@ -1,0 +1,34 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- GHS Ink Theme — editorial light, cream/off-white base -->
+
+  <SolidColorBrush x:Key="bg-shell"       Color="#F9F6F0" />
+  <SolidColorBrush x:Key="bg-panel"       Color="#F2EFE8" />
+  <SolidColorBrush x:Key="bg-toolbar"     Color="#EAE7E0" />
+  <SolidColorBrush x:Key="bg-gutter"      Color="#EDE9E2" />
+  <SolidColorBrush x:Key="bg-editor"      Color="#F9F6F0" />
+  <SolidColorBrush x:Key="bg-preview"     Color="#F4F1EB" />
+  <SolidColorBrush x:Key="accent"         Color="#1A6BC4" />
+  <SolidColorBrush x:Key="accent-dim"     Color="#D0E2F7" />
+  <SolidColorBrush x:Key="border"         Color="#D8D4CC" />
+  <SolidColorBrush x:Key="border-subtle"  Color="#E4E0D8" />
+  <SolidColorBrush x:Key="text-primary"   Color="#1A1A1A" />
+  <SolidColorBrush x:Key="text-secondary" Color="#5A5A5A" />
+  <SolidColorBrush x:Key="text-hint"      Color="#999999" />
+  <SolidColorBrush x:Key="syntax-h1"      Color="#1A6BC4" />
+  <SolidColorBrush x:Key="syntax-h2"      Color="#2E7D32" />
+  <SolidColorBrush x:Key="syntax-h3"      Color="#7B5E20" />
+  <SolidColorBrush x:Key="syntax-h4"      Color="#5A5A5A" />
+  <SolidColorBrush x:Key="syntax-h5"      Color="#777777" />
+  <SolidColorBrush x:Key="syntax-h6"      Color="#888888" />
+  <SolidColorBrush x:Key="syntax-code"    Color="#7C3AED" />
+  <SolidColorBrush x:Key="active-block"   Color="#E0EDFF" />
+  <SolidColorBrush x:Key="active-border"  Color="#A8C8F0" />
+
+  <Color x:Key="bg-panel-color"   >#F2EFE8</Color>
+  <Color x:Key="accent-color"     >#1A6BC4</Color>
+
+  <x:String x:Key="ThemeName">GHS Ink</x:String>
+
+</ResourceDictionary>

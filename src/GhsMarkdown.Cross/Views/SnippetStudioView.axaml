@@ -1,0 +1,139 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.SnippetStudioView"
+             x:DataType="vm:SnippetStudioViewModel">
+
+  <UserControl.Styles>
+    <Style Selector="Button.snippet-row">
+      <Setter Property="Height" Value="28" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="16,0,8,0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Foreground" Value="{DynamicResource text-primary}" />
+      <Setter Property="FontSize" Value="12" />
+    </Style>
+    <Style Selector="Button.snippet-row:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+    </Style>
+    <Style Selector="Button.snippet-row.selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource accent}" />
+    </Style>
+
+    <Style Selector="Button.action-btn">
+      <Setter Property="Height" Value="36" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Foreground" Value="{DynamicResource text-secondary}" />
+      <Setter Property="FontSize" Value="9" />
+    </Style>
+    <Style Selector="Button.action-btn:disabled">
+      <Setter Property="Foreground" Value="{DynamicResource text-hint}" />
+    </Style>
+
+    <Style Selector="Button.add-btn">
+      <Setter Property="Width" Value="28" />
+      <Setter Property="Height" Value="28" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Foreground" Value="{DynamicResource text-secondary}" />
+      <Setter Property="FontSize" Value="16" />
+    </Style>
+    <Style Selector="Button.add-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource accent}" />
+    </Style>
+  </UserControl.Styles>
+
+  <DockPanel>
+    <!-- Panel Header (36px) -->
+    <Border DockPanel.Dock="Top"
+            Height="36"
+            Background="{DynamicResource bg-panel}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1"
+            Padding="12,0,4,0">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0"
+                   Text="SNIPPETS"
+                   VerticalAlignment="Center"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-hint}" />
+        <Button Grid.Column="1"
+                Classes="add-btn"
+                Command="{Binding AddSnippetCommand}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="Add snippet">
+          <TextBlock Text="+" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Action Bar (36px, bottom) -->
+    <Border DockPanel.Dock="Bottom"
+            Height="36"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,*,*">
+        <Button Grid.Column="0"
+                Classes="action-btn"
+                Command="{Binding InsertSnippetCommand}"
+                IsEnabled="{Binding SelectedSnippet, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <TextBlock Text="INSERT" />
+        </Button>
+        <Button Grid.Column="1"
+                Classes="action-btn"
+                Command="{Binding EditSnippetCommand}"
+                IsEnabled="{Binding SelectedSnippet, Converter={x:Static ObjectConverters.IsNotNull}}">
+          <TextBlock Text="EDIT" />
+        </Button>
+        <Button Grid.Column="2"
+                Classes="action-btn"
+                Command="{Binding DeleteSnippetCommand}"
+                IsEnabled="{Binding SelectedSnippet, Converter={x:Static ObjectConverters.IsNotNull}}"
+                Foreground="#C75050">
+          <TextBlock Text="DELETE" />
+        </Button>
+      </Grid>
+    </Border>
+
+    <!-- Snippet list (scrollable, fills remaining) -->
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <ItemsControl ItemsSource="{Binding Categories}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:SnippetCategoryViewModel">
+            <StackPanel>
+              <!-- Category header -->
+              <Border Height="24" Background="{DynamicResource bg-shell}" Padding="8,0">
+                <TextBlock Text="{Binding CategoryName}"
+                           FontSize="9"
+                           Foreground="{DynamicResource text-hint}"
+                           VerticalAlignment="Center" />
+              </Border>
+              <!-- Snippet rows -->
+              <ItemsControl ItemsSource="{Binding Snippets}" x:Name="SnippetRows">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SnippetViewModel">
+                    <Button Classes="snippet-row"
+                            Content="{Binding Title}" />
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+  </DockPanel>
+</UserControl>

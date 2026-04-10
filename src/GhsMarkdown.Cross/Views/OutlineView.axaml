@@ -1,0 +1,97 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             xmlns:views="using:GhsMarkdown.Cross.Views"
+             x:Class="GhsMarkdown.Cross.Views.OutlineView"
+             x:DataType="vm:OutlineViewModel">
+
+  <UserControl.Resources>
+    <views:HeadingLevelToBrushConverter x:Key="LevelActiveBrush" />
+    <views:HeadingLevelBrushConverter x:Key="LevelBrush" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+
+    <Style Selector="Button.outline-node">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.outline-node:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+    </Style>
+    <Style Selector="Button.outline-node.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+    </Style>
+
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <!-- Panel Header (36px) -->
+    <Border DockPanel.Dock="Top"
+            Height="36"
+            Background="{DynamicResource bg-panel}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1"
+            Padding="12,0">
+      <TextBlock Text="OUTLINE"
+                 VerticalAlignment="Center"
+                 FontSize="11"
+                 Foreground="{DynamicResource text-hint}" />
+    </Border>
+
+    <!-- Heading list (scrollable, fills remaining space) -->
+    <ScrollViewer x:Name="OutlineScrollViewer"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <ItemsControl x:Name="OutlineItemsControl" ItemsSource="{Binding Nodes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:OutlineNodeViewModel">
+            <Button Classes="outline-node"
+                    Classes.active="{Binding IsActive}"
+                    Command="{Binding $parent[ItemsControl].((vm:OutlineViewModel)DataContext).ClickNodeCommand}"
+                    CommandParameter="{Binding}">
+              <Grid ColumnDefinitions="Auto,Auto,*">
+                <!-- Active node left accent bar -->
+                <Border Grid.Column="0"
+                        Width="2"
+                        Background="{DynamicResource accent}"
+                        IsVisible="{Binding IsActive}" />
+
+                <!-- Indent spacer -->
+                <Panel Grid.Column="1" Width="{Binding IndentDepth}" />
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Margin="4,0,8,0"
+                            VerticalAlignment="Center">
+                  <Ellipse Width="4" Height="4"
+                           VerticalAlignment="Center"
+                           Fill="{Binding Level, Converter={StaticResource LevelBrush}}" />
+                  <TextBlock Text="{Binding Label}"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis">
+                    <TextBlock.Foreground>
+                      <MultiBinding Converter="{StaticResource LevelActiveBrush}">
+                        <Binding Path="Level" />
+                        <Binding Path="IsActive" />
+                      </MultiBinding>
+                    </TextBlock.Foreground>
+                  </TextBlock>
+                </StackPanel>
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+  </DockPanel>
+</UserControl>

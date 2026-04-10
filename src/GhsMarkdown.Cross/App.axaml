@@ -1,0 +1,53 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:fa="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             xmlns:views="using:GhsMarkdown.Cross.Views"
+             x:Class="GhsMarkdown.Cross.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <FluentTheme />
+    <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+  </Application.Styles>
+
+  <Application.DataTemplates>
+    <DataTemplate DataType="{x:Type vm:TopologyViewModel}">
+      <views:TopologyView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:PlaceholderPanelViewModel}">
+      <views:PlaceholderPanelView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:OutlineViewModel}">
+      <views:OutlineView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SnippetsPlaceholderViewModel}">
+      <views:SnippetsPlaceholderView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:AiAssistPlaceholderViewModel}">
+      <views:AiAssistPlaceholderView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:SnippetStudioViewModel}">
+      <views:SnippetStudioView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:ExportPanelViewModel}">
+      <views:ExportPanelView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:FileBrowserViewModel}">
+      <views:FileBrowserView />
+    </DataTemplate>
+    <DataTemplate DataType="{x:Type vm:CommandPaletteViewModel}">
+      <views:CommandPaletteView />
+    </DataTemplate>
+  </Application.DataTemplates>
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <!-- GHS Dark is the default theme — ThemeService swaps this at runtime -->
+        <ResourceInclude Source="avares://GhsMarkdown.Cross/Themes/GhsDark.axaml" />
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+
+</Application>

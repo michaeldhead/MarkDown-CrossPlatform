@@ -1,0 +1,155 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             xmlns:svc="using:GhsMarkdown.Cross.Services"
+             x:Class="GhsMarkdown.Cross.Views.SettingsView"
+             x:DataType="vm:MainWindowViewModel">
+
+  <ScrollViewer>
+    <StackPanel Margin="12,16,12,16" Spacing="12">
+
+      <TextBlock Text="Settings"
+                 FontSize="13"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource text-primary}" />
+
+      <Border Background="{DynamicResource border-subtle}" Height="1" />
+
+      <!-- ═══ THEME ═══ -->
+      <TextBlock Text="THEME"
+                 FontSize="10"
+                 Foreground="{DynamicResource text-hint}" />
+
+      <StackPanel Spacing="6">
+        <RadioButton x:Name="RadioDark"
+                     Content="GHS Dark"
+                     GroupName="GhsTheme"
+                     Foreground="{DynamicResource text-primary}"
+                     Command="{Binding SetThemeCommand}"
+                     CommandParameter="Dark"
+                     IsChecked="{Binding IsThemeDark, Mode=OneWay}" />
+        <RadioButton x:Name="RadioInk"
+                     Content="GHS Ink"
+                     GroupName="GhsTheme"
+                     Foreground="{DynamicResource text-primary}"
+                     Command="{Binding SetThemeCommand}"
+                     CommandParameter="Ink"
+                     IsChecked="{Binding IsThemeInk, Mode=OneWay}" />
+        <RadioButton x:Name="RadioGlass"
+                     Content="GHS Glass"
+                     GroupName="GhsTheme"
+                     Foreground="{DynamicResource text-primary}"
+                     Command="{Binding SetThemeCommand}"
+                     CommandParameter="Glass"
+                     IsChecked="{Binding IsThemeGlass, Mode=OneWay}" />
+        <RadioButton x:Name="RadioAuto"
+                     Content="Auto (OS)"
+                     GroupName="GhsTheme"
+                     Foreground="{DynamicResource text-primary}"
+                     Command="{Binding SetThemeCommand}"
+                     CommandParameter="Auto"
+                     IsChecked="{Binding IsThemeAuto, Mode=OneWay}" />
+      </StackPanel>
+
+      <Border Background="{DynamicResource border-subtle}" Height="1" />
+
+      <!-- ═══ EDITOR FONT ═══ -->
+      <TextBlock Text="EDITOR FONT"
+                 FontSize="10"
+                 Foreground="{DynamicResource text-hint}" />
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Font Family"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <TextBox Text="{Binding EditorFontFamily}"
+                 PlaceholderText="e.g. Consolas"
+                 FontSize="12"
+                 Foreground="{DynamicResource text-primary}"
+                 Background="{DynamicResource bg-shell}" />
+
+        <TextBlock Text="Font Size"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <NumericUpDown Value="{Binding EditorFontSize}"
+                       Minimum="10" Maximum="24" Increment="1"
+                       FontSize="12"
+                       Foreground="{DynamicResource text-primary}"
+                       Background="{DynamicResource bg-shell}" />
+      </StackPanel>
+
+      <Border Background="{DynamicResource border-subtle}" Height="1" />
+
+      <!-- ═══ AUTO-SAVE ═══ -->
+      <TextBlock Text="AUTO-SAVE"
+                 FontSize="10"
+                 Foreground="{DynamicResource text-hint}" />
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Draft interval (seconds)"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <NumericUpDown Value="{Binding AutoSaveIntervalSeconds}"
+                       Minimum="30" Maximum="3600" Increment="30"
+                       FontSize="12"
+                       FormatString="0"
+                       Foreground="{DynamicResource text-primary}"
+                       Background="{DynamicResource bg-shell}" />
+      </StackPanel>
+
+      <Border Background="{DynamicResource border-subtle}" Height="1" />
+
+      <!-- ═══ SNIPPETS ═══ -->
+      <TextBlock Text="SNIPPETS"
+                 FontSize="10"
+                 Foreground="{DynamicResource text-hint}" />
+
+      <StackPanel Spacing="6">
+        <TextBlock Text="Library path"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <TextBox Text="{Binding SnippetLibraryPath, Mode=OneWay}"
+                 IsReadOnly="True"
+                 FontSize="12"
+                 Foreground="{DynamicResource text-primary}"
+                 Background="{DynamicResource bg-shell}"
+                 PlaceholderText="(default)" />
+        <Button x:Name="BrowseSnippetPathBtn"
+                Content="Browse…"
+                FontSize="11"
+                Foreground="{DynamicResource text-secondary}"
+                Background="Transparent"
+                BorderThickness="0"
+                Cursor="Hand"
+                HorizontalAlignment="Left" />
+      </StackPanel>
+
+      <Border Background="{DynamicResource border-subtle}" Height="1" />
+
+      <!-- ═══ KEYBOARD SHORTCUTS ═══ -->
+      <TextBlock Text="KEYBOARD SHORTCUTS"
+                 FontSize="10"
+                 Foreground="{DynamicResource text-hint}" />
+
+      <ItemsControl ItemsSource="{Binding ShortcutCommands}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate DataType="{x:Type svc:CommandDescriptor}">
+            <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+              <TextBlock Grid.Column="0"
+                         Text="{Binding Title}"
+                         FontSize="12"
+                         Foreground="{DynamicResource text-primary}" />
+              <TextBlock Grid.Column="1"
+                         Text="{Binding KeyboardShortcut}"
+                         FontSize="11"
+                         FontFamily="Cascadia Code,Consolas,monospace"
+                         Foreground="{DynamicResource text-hint}" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+
+    </StackPanel>
+  </ScrollViewer>
+
+</UserControl>

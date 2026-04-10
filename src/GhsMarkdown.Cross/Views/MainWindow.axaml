@@ -1,0 +1,397 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+        xmlns:views="using:GhsMarkdown.Cross.Views"
+        xmlns:ae="using:AvaloniaEdit"
+        x:Class="GhsMarkdown.Cross.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="{Binding WindowTitle}"
+        Width="1280" Height="800"
+        MinWidth="800" MinHeight="500"
+        Background="{DynamicResource bg-shell}"
+        ExtendClientAreaToDecorationsHint="False"
+        DragDrop.AllowDrop="True">
+
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding NewFileCommand}" />
+    <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenFileCommand}" />
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding SaveFileCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+S" Command="{Binding SaveFileAsCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+E" Command="{Binding SetViewModeEditCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+T" Command="{Binding SetViewModeSplitCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding SetViewModePreviewCommand}" />
+    <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPaletteCommand}" />
+  </Window.KeyBindings>
+
+  <Window.Styles>
+
+    <!-- Icon Rail button base -->
+    <Style Selector="Button.icon-rail-btn">
+      <Setter Property="Width" Value="44" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Foreground" Value="{DynamicResource text-hint}" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.icon-rail-btn:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+      <Setter Property="TextElement.Foreground" Value="{DynamicResource accent}" />
+    </Style>
+    <Style Selector="Button.icon-rail-btn.active">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+      <Setter Property="Foreground" Value="{DynamicResource accent}" />
+    </Style>
+
+    <!-- Pull tab -->
+    <Style Selector="Button.pull-tab">
+      <Setter Property="Width" Value="10" />
+      <Setter Property="Height" Value="44" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="CornerRadius" Value="4,0,0,4" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+  </Window.Styles>
+
+  <Grid>
+  <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+
+    <!-- ═══ TITLEBAR (38px) ═══ -->
+    <Border DockPanel.Dock="Top"
+            Height="38"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,Auto,*">
+        <TextBlock Grid.Column="1"
+                   Text="{Binding WindowTitle}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontSize="13"
+                   FontWeight="Medium"
+                   Foreground="{DynamicResource text-primary}" />
+        <StackPanel Grid.Column="2"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Margin="0,0,12,0"
+                    Spacing="2">
+          <Button Classes="icon-rail-btn"
+                  Classes.active="{Binding IsEditMode}"
+                  Command="{Binding SetViewModeEditCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Edit (Ctrl+1)">
+            <TextBlock Text="Edit" FontSize="11" />
+          </Button>
+          <Button Classes="icon-rail-btn"
+                  Classes.active="{Binding IsSplitMode}"
+                  Command="{Binding SetViewModeSplitCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Split (Ctrl+2)">
+            <TextBlock Text="Split" FontSize="11" />
+          </Button>
+          <Button Classes="icon-rail-btn"
+                  Classes.active="{Binding IsPreviewMode}"
+                  Command="{Binding SetViewModePreviewCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Preview (Ctrl+3)">
+            <TextBlock Text="Preview" FontSize="11" />
+          </Button>
+          <Border Width="1" Height="16" Background="{DynamicResource border}" Margin="6,0" />
+          <Button Classes="icon-rail-btn"
+                  Command="{Binding OpenExportCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Export">
+            <TextBlock Text="Export…" FontSize="11" Foreground="{DynamicResource accent}" />
+          </Button>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <!-- ═══ STATUS BAR (26px) ═══ -->
+    <Border DockPanel.Dock="Bottom"
+            Height="26"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border-subtle}"
+            BorderThickness="0,1,0,0">
+      <Grid ColumnDefinitions="*,Auto,Auto">
+        <TextBlock Grid.Column="0"
+                   x:Name="StatusText"
+                   Text="Ln 1 · Col 1 · 0 words"
+                   VerticalAlignment="Center"
+                   Margin="10,0,0,0"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <TextBlock Grid.Column="1"
+                   Text="{Binding CurrentThemeName}"
+                   VerticalAlignment="Center"
+                   Margin="0,0,10,0"
+                   FontSize="11"
+                   Foreground="{DynamicResource text-secondary}" />
+        <views:TimelineScrubberView Grid.Column="2"
+                                     DataContext="{Binding Timeline}" />
+      </Grid>
+    </Border>
+
+    <!-- ═══ MAIN CONTENT AREA ═══ -->
+    <!-- Col 0: Icon Rail | Col 1: Left Panel | Col 2: Center (* editor+gutter+preview) | Col 3: Right Panel | Col 4: Pull Tab -->
+    <Grid ColumnDefinitions="44,Auto,*,Auto,Auto">
+
+      <!-- Col 0: Icon Rail (44px, always visible) -->
+      <Border Grid.Column="0"
+              Background="{DynamicResource bg-gutter}"
+              BorderBrush="{DynamicResource border}"
+              BorderThickness="0,0,1,0">
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Top" Spacing="0">
+
+            <Button Classes="icon-rail-btn"
+                    Classes.active="{Binding IsTopologyActive}"
+                    Command="{Binding ActivateIconCommand}"
+                    CommandParameter="Topology"
+                    ToolTip.Tip="Document Topology">
+              <TextBlock Text="⬡" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+
+            <Button Classes="icon-rail-btn"
+                    Classes.active="{Binding IsFilesActive}"
+                    Command="{Binding ActivateIconCommand}"
+                    CommandParameter="Files"
+                    ToolTip.Tip="Files">
+              <TextBlock Text="⊞" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+
+            <Button Classes="icon-rail-btn"
+                    Classes.active="{Binding IsSnippetsActive}"
+                    Command="{Binding ActivateIconCommand}"
+                    CommandParameter="Snippets"
+                    ToolTip.Tip="Snippet Studio">
+              <TextBlock Text="❮❯" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+
+            <Button Classes="icon-rail-btn"
+                    Classes.active="{Binding IsSearchActive}"
+                    Command="{Binding ActivateIconCommand}"
+                    CommandParameter="Search"
+                    ToolTip.Tip="Search">
+              <TextBlock Text="◎" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+
+          </StackPanel>
+
+          <StackPanel DockPanel.Dock="Bottom" Spacing="0">
+            <Button Classes="icon-rail-btn"
+                    Classes.active="{Binding IsSettingsOpen}"
+                    Command="{Binding ActivateIconCommand}"
+                    CommandParameter="Settings"
+                    ToolTip.Tip="Settings">
+              <TextBlock Text="⚙" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Button>
+          </StackPanel>
+
+        </DockPanel>
+      </Border>
+
+      <!-- Col 1: Left Panel (collapsible, 220px when open) -->
+      <Border Grid.Column="1"
+              Width="{Binding LeftPanelWidth}"
+              Background="{DynamicResource bg-panel}"
+              BorderBrush="{DynamicResource border}"
+              BorderThickness="0,0,1,0"
+              ClipToBounds="True">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseInOut" />
+          </Transitions>
+        </Border.Transitions>
+
+        <Panel>
+          <!-- Panel slot occupant — resolved via DataTemplate in App.axaml -->
+          <ContentControl x:Name="LeftPanelSlot"
+                          IsVisible="{Binding !IsSettingsOpen}"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+
+          <views:SettingsView IsVisible="{Binding IsSettingsOpen}"
+                              DataContext="{Binding}" />
+        </Panel>
+      </Border>
+
+      <!-- Col 2: Center area — nested Grid drives editor/gutter/preview proportional split -->
+      <Grid Grid.Column="2" x:Name="CenterGrid">
+        <Grid.ColumnDefinitions>
+          <!-- Widths are managed entirely from code-behind (UpdateCenterLayout) -->
+          <ColumnDefinition Width="*" />    <!-- Editor -->
+          <ColumnDefinition Width="28" />   <!-- Gutter -->
+          <ColumnDefinition Width="*" />    <!-- Preview -->
+        </Grid.ColumnDefinitions>
+
+        <!-- Editor pane (pinned to GHS Dark colors — .xshd limitation, see NOTES.md) -->
+        <Border Grid.Column="0"
+                IsVisible="{Binding EditorPaneVisible}"
+                ClipToBounds="True">
+          <ae:TextEditor x:Name="MarkdownEditor"
+                         FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                         FontSize="13"
+                         ShowLineNumbers="True"
+                         WordWrap="False"
+                         HorizontalScrollBarVisibility="Auto"
+                         VerticalScrollBarVisibility="Auto" />
+        </Border>
+
+        <!-- Smart Gutter (28px) — drag-to-resize handle, sync dots, word count -->
+        <Border Grid.Column="1"
+                x:Name="GutterBorder"
+                IsVisible="{Binding GutterVisible}"
+                Background="{DynamicResource bg-gutter}"
+                BorderBrush="{DynamicResource border-subtle}"
+                BorderThickness="1,0,1,0"
+                Cursor="SizeWestEast"
+                ClipToBounds="True">
+          <StackPanel VerticalAlignment="Center"
+                      HorizontalAlignment="Center"
+                      Spacing="5">
+
+            <!-- 7 sync thread dots -->
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+            <Ellipse Width="6" Height="6" Fill="{Binding GutterDotBrush}" />
+
+            <!-- Word count — rotated 90° so it reads vertically in the narrow gutter -->
+            <Border Margin="0,8,0,0" HorizontalAlignment="Center">
+              <TextBlock Text="{Binding GutterWordCount}"
+                         FontSize="8"
+                         Foreground="{DynamicResource text-hint}"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center">
+                <TextBlock.RenderTransform>
+                  <RotateTransform Angle="90" />
+                </TextBlock.RenderTransform>
+              </TextBlock>
+            </Border>
+
+          </StackPanel>
+        </Border>
+
+        <!-- Preview pane — NativeWebView -->
+        <Border Grid.Column="2"
+                IsVisible="{Binding PreviewPaneVisible}"
+                Background="{DynamicResource bg-preview}"
+                ClipToBounds="True">
+          <NativeWebView x:Name="PreviewWebView"
+                         IsVisible="{Binding PreviewPaneVisible}"
+                         HorizontalAlignment="Stretch"
+                         VerticalAlignment="Stretch" />
+        </Border>
+
+      </Grid>
+
+      <!-- Col 3: Right Panel (collapsible, 200px when open) -->
+      <Border Grid.Column="3"
+              Width="{Binding RightPanelWidth}"
+              Background="{DynamicResource bg-panel}"
+              BorderBrush="{DynamicResource border}"
+              BorderThickness="1,0,0,0"
+              ClipToBounds="True">
+        <Border.Transitions>
+          <Transitions>
+            <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseInOut" />
+          </Transitions>
+        </Border.Transitions>
+        <DockPanel>
+          <!-- Slot Switcher (36px, bottom) -->
+          <Border DockPanel.Dock="Bottom"
+                  Height="36"
+                  Background="{DynamicResource bg-toolbar}"
+                  BorderBrush="{DynamicResource border}"
+                  BorderThickness="0,1,0,0">
+            <Grid ColumnDefinitions="*,*,*">
+              <Button Grid.Column="0"
+                      Classes="icon-rail-btn"
+                      Classes.active="{Binding IsOutlineSlotActive}"
+                      Command="{Binding SwitchToOutlineCommand}"
+                      Height="36" Width="NaN"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Outline">
+                <TextBlock Text="OUTLINE" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+              <Button Grid.Column="1"
+                      Classes="icon-rail-btn"
+                      Classes.active="{Binding IsSnippetsSlotActive}"
+                      Command="{Binding SwitchToSnippetsCommand}"
+                      Height="36" Width="NaN"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="Snippets">
+                <TextBlock Text="SNIPPETS" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+              <Button Grid.Column="2"
+                      Classes="icon-rail-btn"
+                      Classes.active="{Binding IsAiAssistSlotActive}"
+                      Command="{Binding SwitchToAiAssistCommand}"
+                      Height="36" Width="NaN"
+                      HorizontalAlignment="Stretch"
+                      ToolTip.Tip="AI Assist">
+                <TextBlock Text="AI ASSIST" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              </Button>
+            </Grid>
+          </Border>
+
+          <!-- Slot content (fills remaining space) -->
+          <ContentControl x:Name="RightPanelSlot"
+                          HorizontalContentAlignment="Stretch"
+                          VerticalContentAlignment="Stretch" />
+        </DockPanel>
+      </Border>
+
+      <!-- Col 4: Pull Tab (10px × 44px strip) -->
+      <Border Grid.Column="4"
+              Background="{DynamicResource bg-gutter}"
+              BorderBrush="{DynamicResource border}"
+              BorderThickness="1,0,0,0">
+        <Button Classes="pull-tab"
+                Command="{Binding ToggleRightPanelCommand}"
+                VerticalAlignment="Center"
+                ToolTip.Tip="{Binding RightPanelSlotName}" />
+      </Border>
+
+    </Grid>
+
+  </DockPanel>
+
+  <!-- ═══ EXPORT PANEL OVERLAY (ZIndex=50, right-aligned) ═══ -->
+  <Border ZIndex="50"
+          Grid.ColumnSpan="99"
+          HorizontalAlignment="Right"
+          Width="380"
+          IsVisible="{Binding ExportPanel.IsOpen, FallbackValue=False}"
+          BorderBrush="#222222"
+          BorderThickness="1,0,0,0">
+    <views:ExportPanelView DataContext="{Binding ExportPanel}" />
+  </Border>
+
+  <!-- ═══ COMMAND PALETTE OVERLAY (ZIndex=100) ═══ -->
+  <!-- FallbackValue=False ensures overlay is hidden before DataContext resolves.
+       Grid spans ensure full window coverage regardless of root Grid structure. -->
+  <ContentControl Content="{Binding CommandPalette}"
+                  IsVisible="{Binding CommandPalette.IsOpen, FallbackValue=False}"
+                  ZIndex="100"
+                  Grid.Row="0" Grid.RowSpan="99"
+                  Grid.Column="0" Grid.ColumnSpan="99"
+                  HorizontalAlignment="Stretch"
+                  VerticalAlignment="Stretch"
+                  HorizontalContentAlignment="Stretch"
+                  VerticalContentAlignment="Stretch" />
+  </Grid>
+
+</Window>

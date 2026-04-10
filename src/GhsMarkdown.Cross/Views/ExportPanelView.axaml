@@ -1,0 +1,115 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.ExportPanelView"
+             x:DataType="vm:ExportPanelViewModel"
+             Background="#181818">
+
+  <Grid RowDefinitions="44,*,52"
+        ColumnDefinitions="110,*">
+
+    <!-- ROW 0: Header — spans both columns -->
+    <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+            Background="#1A1A1A"
+            BorderBrush="#222222"
+            BorderThickness="0,0,0,1">
+      <Grid ColumnDefinitions="*,44">
+        <TextBlock Grid.Column="0"
+                   Text="EXPORT"
+                   FontSize="11"
+                   Foreground="#444444"
+                   VerticalAlignment="Center"
+                   Margin="12,0,0,0" />
+        <Button Grid.Column="1"
+                Content="✕"
+                Command="{Binding CloseCommand}"
+                Background="Transparent"
+                Foreground="#888888"
+                BorderThickness="0"
+                Width="44" Height="44"
+                FontSize="14" />
+      </Grid>
+    </Border>
+
+    <!-- ROW 1 COL 0: Format buttons — NO WebView in this column -->
+    <Border Grid.Row="1" Grid.Column="0"
+            BorderBrush="#222222"
+            BorderThickness="0,0,1,0"
+            Background="#181818">
+      <StackPanel>
+        <Button Content="PDF"
+                Command="{Binding SelectFormatCommand}"
+                CommandParameter="PdfStyled"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Height="32" Padding="10,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#888888"
+                FontSize="12" />
+        <Button Content="Word (.docx)"
+                Command="{Binding SelectFormatCommand}"
+                CommandParameter="Docx"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Height="32" Padding="10,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#888888"
+                FontSize="12" />
+        <Button Content="HTML Styled"
+                Command="{Binding SelectFormatCommand}"
+                CommandParameter="HtmlStyled"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Height="32" Padding="10,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#888888"
+                FontSize="12" />
+        <Button Content="HTML Clean"
+                Command="{Binding SelectFormatCommand}"
+                CommandParameter="HtmlClean"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Height="32" Padding="10,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#888888"
+                FontSize="12" />
+        <Button Content="Plain Text"
+                Command="{Binding SelectFormatCommand}"
+                CommandParameter="PlainText"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                Height="32" Padding="10,0"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="#888888"
+                FontSize="12" />
+      </StackPanel>
+    </Border>
+
+    <!-- ROW 1 COL 1: NativeWebView — isolated column, no shared space -->
+    <NativeWebView Grid.Row="1" Grid.Column="1"
+                   x:Name="ExportPreviewWebView" />
+
+    <!-- ROW 2: Export button — spans both columns -->
+    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+            Background="#181818"
+            BorderBrush="#222222"
+            BorderThickness="0,1,0,0">
+      <Button Content="Export…"
+              Command="{Binding ExportCommand}"
+              HorizontalAlignment="Stretch"
+              VerticalAlignment="Stretch"
+              Background="#4A9EFF"
+              Foreground="White"
+              BorderThickness="0"
+              FontSize="13"
+              Margin="12,8" />
+    </Border>
+
+  </Grid>
+
+</UserControl>

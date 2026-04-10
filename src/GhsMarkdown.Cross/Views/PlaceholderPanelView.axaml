@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.PlaceholderPanelView"
+             x:DataType="vm:PlaceholderPanelViewModel">
+  <TextBlock Text="Placeholder Panel"
+             Foreground="{DynamicResource text-secondary}"
+             FontSize="13"
+             HorizontalAlignment="Center"
+             VerticalAlignment="Center" />
+</UserControl>

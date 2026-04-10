@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             xmlns:views="using:GhsMarkdown.Cross.Views"
+             x:Class="GhsMarkdown.Cross.Views.TopologyView"
+             x:DataType="vm:TopologyViewModel">
+
+  <UserControl.Resources>
+    <views:HeadingLevelToBrushConverter x:Key="LevelActiveBrush" />
+    <views:HeadingLevelBrushConverter x:Key="LevelBrush" />
+    <views:FractionToWidthConverter x:Key="FractionToWidth" />
+  </UserControl.Resources>
+
+  <UserControl.Styles>
+
+    <!-- Node row base -->
+    <Style Selector="Button.topo-node">
+      <Setter Property="Height" Value="26" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.topo-node:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+    </Style>
+
+    <!-- Active node background -->
+    <Style Selector="Button.topo-node.active /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+    </Style>
+
+    <!-- Balance bar -->
+    <Style Selector="Border.balance-bar">
+      <Setter Property="Height" Value="8" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+    </Style>
+    <Style Selector="Border.balance-bar.active">
+      <Setter Property="Background" Value="{DynamicResource accent}" />
+    </Style>
+
+  </UserControl.Styles>
+
+  <DockPanel>
+
+    <!-- ═══ Panel Header (36px) ═══ -->
+    <Border DockPanel.Dock="Top"
+            Height="36"
+            Background="{DynamicResource bg-panel}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1"
+            Padding="12,0">
+      <TextBlock Text="TOPOLOGY"
+                 VerticalAlignment="Center"
+                 FontSize="11"
+                 Foreground="{DynamicResource text-hint}" />
+    </Border>
+
+    <!-- ═══ Balance Chart (80px, bottom) ═══ -->
+    <Border DockPanel.Dock="Bottom"
+            Height="80"
+            Padding="8,4"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,1,0,0">
+      <DockPanel>
+        <TextBlock DockPanel.Dock="Top"
+                   Text="BALANCE"
+                   FontSize="9"
+                   Foreground="{DynamicResource text-hint}"
+                   Margin="0,2,0,4" />
+        <ItemsControl ItemsSource="{Binding BalanceBars}">
+          <ItemsControl.ItemsPanel>
+            <ItemsPanelTemplate>
+              <StackPanel Orientation="Horizontal" Spacing="2" />
+            </ItemsPanelTemplate>
+          </ItemsControl.ItemsPanel>
+          <ItemsControl.ItemTemplate>
+            <DataTemplate x:DataType="vm:SectionBalanceBar">
+              <StackPanel Spacing="2" VerticalAlignment="Top"
+                          Width="{Binding WidthFraction, Converter={StaticResource FractionToWidth}}">
+                <Border Height="8"
+                        CornerRadius="4"
+                        Classes="balance-bar"
+                        Classes.active="{Binding IsActive}" />
+                <TextBlock Text="{Binding Label}"
+                           FontSize="8"
+                           Foreground="{DynamicResource text-hint}"
+                           TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </DataTemplate>
+          </ItemsControl.ItemTemplate>
+        </ItemsControl>
+      </DockPanel>
+    </Border>
+
+    <!-- ═══ Node Tree (scrollable, fills remaining space) ═══ -->
+    <ScrollViewer x:Name="NodeScrollViewer"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Auto">
+      <ItemsControl x:Name="NodeItemsControl" ItemsSource="{Binding Nodes}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:TopologyNodeViewModel">
+            <Button Classes="topo-node"
+                    Classes.active="{Binding IsActive}"
+                    Command="{Binding $parent[ItemsControl].((vm:TopologyViewModel)DataContext).ClickNodeCommand}"
+                    CommandParameter="{Binding}">
+              <Grid ColumnDefinitions="Auto,Auto,*">
+                <!-- Active node left accent bar (2px solid accent) -->
+                <Border Grid.Column="0"
+                        Width="2"
+                        Background="{DynamicResource accent}"
+                        IsVisible="{Binding IsActive}" />
+
+                <!-- Indent spacer -->
+                <Panel Grid.Column="1" Width="{Binding IndentDepth}" />
+
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            Spacing="6"
+                            Margin="4,0,8,0"
+                            VerticalAlignment="Center">
+                  <!-- Bullet circle — colored by heading level -->
+                  <Ellipse Width="4" Height="4"
+                           VerticalAlignment="Center"
+                           Fill="{Binding Level, Converter={StaticResource LevelBrush}}" />
+
+                  <!-- Heading text — colored by level, accent when active -->
+                  <TextBlock Text="{Binding Label}"
+                             FontSize="12"
+                             VerticalAlignment="Center"
+                             TextTrimming="CharacterEllipsis">
+                    <TextBlock.Foreground>
+                      <MultiBinding Converter="{StaticResource LevelActiveBrush}">
+                        <Binding Path="Level" />
+                        <Binding Path="IsActive" />
+                      </MultiBinding>
+                    </TextBlock.Foreground>
+                  </TextBlock>
+                </StackPanel>
+              </Grid>
+            </Button>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </ScrollViewer>
+
+  </DockPanel>
+</UserControl>

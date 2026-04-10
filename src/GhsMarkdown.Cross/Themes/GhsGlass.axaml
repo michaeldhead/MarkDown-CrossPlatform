@@ -1,0 +1,35 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- GHS Glass Theme — glassmorphism, same dark base with opacity 0.75 panels -->
+  <!-- BlurBehind applied in code where platform supports it; graceful fallback to these solid colors -->
+
+  <SolidColorBrush x:Key="bg-shell"       Color="#141414" />
+  <SolidColorBrush x:Key="bg-panel"       Color="#181818" Opacity="0.75" />
+  <SolidColorBrush x:Key="bg-toolbar"     Color="#1A1A1A" Opacity="0.75" />
+  <SolidColorBrush x:Key="bg-gutter"      Color="#161616" Opacity="0.75" />
+  <SolidColorBrush x:Key="bg-editor"      Color="#141414" />
+  <SolidColorBrush x:Key="bg-preview"     Color="#161616" Opacity="0.75" />
+  <SolidColorBrush x:Key="accent"         Color="#4A9EFF" />
+  <SolidColorBrush x:Key="accent-dim"     Color="#1E3A5F" Opacity="0.85" />
+  <SolidColorBrush x:Key="border"         Color="#333333" />
+  <SolidColorBrush x:Key="border-subtle"  Color="#282828" />
+  <SolidColorBrush x:Key="text-primary"   Color="#E8E8E8" />
+  <SolidColorBrush x:Key="text-secondary" Color="#888888" />
+  <SolidColorBrush x:Key="text-hint"      Color="#444444" />
+  <SolidColorBrush x:Key="syntax-h1"      Color="#4A9EFF" />
+  <SolidColorBrush x:Key="syntax-h2"      Color="#5AB865" />
+  <SolidColorBrush x:Key="syntax-h3"      Color="#B8954A" />
+  <SolidColorBrush x:Key="syntax-h4"      Color="#888888" />
+  <SolidColorBrush x:Key="syntax-h5"      Color="#666666" />
+  <SolidColorBrush x:Key="syntax-h6"      Color="#555555" />
+  <SolidColorBrush x:Key="syntax-code"    Color="#C792EA" />
+  <SolidColorBrush x:Key="active-block"   Color="#0D1F35" Opacity="0.85" />
+  <SolidColorBrush x:Key="active-border"  Color="#2A4A6A" />
+
+  <Color x:Key="bg-panel-color"   >#181818</Color>
+  <Color x:Key="accent-color"     >#4A9EFF</Color>
+
+  <x:String x:Key="ThemeName">GHS Glass</x:String>
+
+</ResourceDictionary>

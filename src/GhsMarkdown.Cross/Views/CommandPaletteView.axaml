@@ -1,0 +1,128 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             xmlns:svc="using:GhsMarkdown.Cross.Services"
+             x:Class="GhsMarkdown.Cross.Views.CommandPaletteView"
+             x:DataType="vm:CommandPaletteViewModel">
+
+  <UserControl.Styles>
+    <!-- Result row base -->
+    <Style Selector="Button.palette-row">
+      <Setter Property="Height" Value="32" />
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="Button.palette-row:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+    </Style>
+    <Style Selector="Button.palette-row.selected /template/ ContentPresenter">
+      <Setter Property="Background" Value="{DynamicResource accent-dim}" />
+    </Style>
+  </UserControl.Styles>
+
+  <!-- Full-window overlay -->
+  <Panel>
+    <!-- Backdrop -->
+    <Rectangle x:Name="Backdrop"
+               Fill="#8C000000"
+               HorizontalAlignment="Stretch"
+               VerticalAlignment="Stretch" />
+
+    <!-- Card (centered, 480px wide) -->
+    <Border x:Name="PaletteCard"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Top"
+            Margin="0,80,0,0"
+            Width="480"
+            MaxHeight="420"
+            Background="{DynamicResource bg-panel}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="1"
+            CornerRadius="8"
+            ClipToBounds="True">
+      <DockPanel>
+
+        <!-- Search row (48px) -->
+        <Border DockPanel.Dock="Top"
+                Height="48"
+                BorderBrush="{DynamicResource border}"
+                BorderThickness="0,0,0,1">
+          <Grid ColumnDefinitions="Auto,*" Margin="14,0,0,0">
+            <TextBlock Grid.Column="0"
+                       Text="&#x1F50D;"
+                       FontSize="16"
+                       Foreground="{DynamicResource text-hint}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,10,0" />
+            <TextBox Grid.Column="1"
+                     x:Name="SearchInput"
+                     Text="{Binding SearchText, Mode=TwoWay}"
+                     PlaceholderText="Search commands..."
+                     FontSize="14"
+                     Foreground="{DynamicResource text-primary}"
+                     Background="Transparent"
+                     BorderThickness="0"
+                     VerticalAlignment="Center"
+                     Padding="0,8" />
+          </Grid>
+        </Border>
+
+        <!-- Results list -->
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+          <Panel>
+            <!-- Empty state -->
+            <TextBlock Text="No commands found"
+                       FontSize="12"
+                       Foreground="{DynamicResource text-secondary}"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Margin="0,24"
+                       IsVisible="False"
+                       x:Name="EmptyState" />
+
+            <ItemsControl ItemsSource="{Binding Results}"
+                          x:Name="ResultsList">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="svc:CommandDescriptor">
+                  <Button Classes="palette-row"
+                          x:Name="ResultRow">
+                    <Grid ColumnDefinitions="80,*,Auto" Margin="12,0">
+                      <!-- Category badge -->
+                      <TextBlock Grid.Column="0"
+                                 Text="{Binding Category}"
+                                 FontSize="8"
+                                 Foreground="{DynamicResource text-hint}"
+                                 VerticalAlignment="Center"
+                                 TextTrimming="CharacterEllipsis" />
+                      <!-- Command title -->
+                      <TextBlock Grid.Column="1"
+                                 Text="{Binding Title}"
+                                 FontSize="13"
+                                 Foreground="{DynamicResource text-primary}"
+                                 VerticalAlignment="Center" />
+                      <!-- Keyboard shortcut -->
+                      <TextBlock Grid.Column="2"
+                                 Text="{Binding KeyboardShortcut}"
+                                 FontSize="11"
+                                 Foreground="{DynamicResource text-hint}"
+                                 FontFamily="Cascadia Code,Consolas,Menlo,monospace"
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,12,0"
+                                 IsVisible="{Binding KeyboardShortcut, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </Grid>
+                  </Button>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </Panel>
+        </ScrollViewer>
+
+      </DockPanel>
+    </Border>
+  </Panel>
+</UserControl>
