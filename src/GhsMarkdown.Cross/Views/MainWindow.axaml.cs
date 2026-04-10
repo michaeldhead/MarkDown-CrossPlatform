@@ -44,6 +44,9 @@ public partial class MainWindow : Window
     private string? _lastActiveSelector;
     private CancellationTokenSource? _highlightCts;
 
+    // ─── Typewriter scroll (Focus Mode) ─────────────────────────────────────
+    private System.Threading.Timer? _typewriterTimer;
+
     // ─── Gutter drag ──────────────────────────────────────────────────────────
     private bool   _isDraggingGutter;
     private double _dragStartX;
@@ -73,6 +76,8 @@ public partial class MainWindow : Window
                 : DragDropEffects.None;
         });
         AddHandler(DragDrop.DropEvent, OnFileDrop);
+
+        Closing += (_, _) => _typewriterTimer?.Dispose();
     }
 
     private async void OnFileDrop(object? sender, DragEventArgs e)
@@ -311,10 +316,11 @@ public partial class MainWindow : Window
         // var xshd = HighlightingLoader.LoadXshd(reader);
         // _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
 
-        _editor.Options.ShowTabs             = false;
-        _editor.Options.IndentationSize      = 2;
-        _editor.Options.ConvertTabsToSpaces  = true;
-        _editor.Options.HighlightCurrentLine = true;
+        _editor.Options.ShowTabs                = false;
+        _editor.Options.IndentationSize         = 2;
+        _editor.Options.ConvertTabsToSpaces     = true;
+        _editor.Options.HighlightCurrentLine    = true;
+        _editor.Options.AllowScrollBelowDocument = true;
 
         // Push text changes to EditorViewModel
         _editor.Document.TextChanged += (_, _) =>
@@ -360,24 +366,28 @@ public partial class MainWindow : Window
             if (_editorVm is not null)
                 _editorVm.CaretLine = line;
 
-            // Typewriter scrolling — keep active line vertically centered
+            // Typewriter scrolling — 60ms timer fires after AvaloniaEdit's BringCaretToView
             if (_mainVm?.IsFocusModeActive == true && _editor is not null)
             {
-                Dispatcher.UIThread.Post(() =>
+                _typewriterTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _typewriterTimer = new System.Threading.Timer(_ =>
                 {
-                    try
+                    Dispatcher.UIThread.Post(() =>
                     {
-                        var lineNum = _editor.TextArea.Caret.Line;
-                        var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
-                        var editorHeight = _editor.Bounds.Height;
-                        if (editorHeight <= 0 || lineHeight <= 0) return;
+                        try
+                        {
+                            var lineNum = _editor.TextArea.Caret.Line;
+                            var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
+                            var editorHeight = _editor.Bounds.Height;
+                            if (editorHeight <= 0 || lineHeight <= 0) return;
 
-                        var lineTop = (lineNum - 1) * lineHeight;
-                        var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
-                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
-                    }
-                    catch { }
-                }, DispatcherPriority.Background);
+                            var lineTop = (lineNum - 1) * lineHeight;
+                            var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
+                            _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
+                        }
+                        catch { }
+                    });
+                }, null, 60, Timeout.Infinite);
             }
         };
     }
