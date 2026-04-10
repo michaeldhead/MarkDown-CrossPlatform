@@ -359,6 +359,18 @@ public partial class MainWindow : Window
             // Feed caret line to EditorViewModel for TopologyViewModel subscription
             if (_editorVm is not null)
                 _editorVm.CaretLine = line;
+
+            // Typewriter scrolling — keep active line vertically centered
+            if (_mainVm?.IsFocusModeActive == true && _editor is not null)
+            {
+                var visualPos = _editor.TextArea.TextView.GetVisualPosition(
+                    new AvaloniaEdit.TextViewPosition(line, 1),
+                    AvaloniaEdit.Rendering.VisualYPosition.LineMiddle);
+                var editorHeight = _editor.Bounds.Height;
+                var currentScroll = _editor.TextArea.TextView.ScrollOffset.Y;
+                var targetScroll = currentScroll + visualPos.Y - (editorHeight / 2.0);
+                _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
+            }
         };
     }
 
@@ -537,6 +549,43 @@ public partial class MainWindow : Window
             if (_webViewReady && _webView is not null)
                 _ = _webView.InvokeScript("window.print()");
         });
+
+        _mainVm?.SetFocusModeAction(active => ApplyFocusModeStyles(active));
+        if (_mainVm?.IsFocusModeActive == true)
+            ApplyFocusModeStyles(true);
+    }
+
+    // ─── Focus Mode — prose dimming in preview ───────────────────────────────
+
+    private void ApplyFocusModeStyles(bool active)
+    {
+        if (!_webViewReady || _webView is null) return;
+
+        if (active)
+        {
+            _ = _webView.InvokeScript("""
+                (function() {
+                    var style = document.getElementById('ghs-focus-style');
+                    if (!style) {
+                        style = document.createElement('style');
+                        style.id = 'ghs-focus-style';
+                        document.head.appendChild(style);
+                    }
+                    style.textContent =
+                        'body > *:not(.ghs-active) { opacity: 0.2; transition: opacity 0.3s ease; }' +
+                        'body > .ghs-active { opacity: 1.0; transition: opacity 0.3s ease; }';
+                })();
+            """);
+        }
+        else
+        {
+            _ = _webView.InvokeScript("""
+                (function() {
+                    var style = document.getElementById('ghs-focus-style');
+                    if (style) style.remove();
+                })();
+            """);
+        }
     }
 
     private void NavigateWebView(string html)
@@ -565,6 +614,10 @@ public partial class MainWindow : Window
         // Re-apply highlight for current caret line
         if (_editor is not null)
             ScheduleHighlightUpdate(_editor.TextArea.Caret.Line);
+
+        // Re-inject focus mode styles if active (NavigateToString destroys injected styles)
+        if (_mainVm?.IsFocusModeActive == true)
+            ApplyFocusModeStyles(true);
     }
 
     // ─── JS injection (consolidated, all three listeners) ────────────────────

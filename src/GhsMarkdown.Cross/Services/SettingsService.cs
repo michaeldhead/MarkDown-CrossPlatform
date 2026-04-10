@@ -14,6 +14,7 @@ public record AppSettings
     public double EditorFontSize         { get; init; } = 14.0;
     public int    AutoSaveIntervalSeconds { get; init; } = 60;
     public string SnippetLibraryPath     { get; init; } = "";
+    public bool   FocusMode             { get; init; } = false;
     public List<string> RecentFiles      { get; init; } = new();
 }
 

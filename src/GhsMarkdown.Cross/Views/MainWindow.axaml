@@ -22,6 +22,7 @@
     <KeyBinding Gesture="Ctrl+Shift+W" Command="{Binding SetViewModePreviewCommand}" />
     <KeyBinding Gesture="Ctrl+P" Command="{Binding OpenPaletteCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding PrintCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+F" Command="{Binding ToggleFocusModeCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -46,6 +47,21 @@
     <Style Selector="Button.icon-rail-btn.active">
       <Setter Property="Background" Value="{DynamicResource accent-dim}" />
       <Setter Property="Foreground" Value="{DynamicResource accent}" />
+    </Style>
+
+    <!-- Focus Mode toggle -->
+    <Style Selector="ToggleButton.focus-toggle">
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="Padding" Value="8,0" />
+      <Setter Property="Height" Value="26" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+    <Style Selector="ToggleButton.focus-toggle:checked">
+      <Setter Property="Background" Value="{DynamicResource accent}" />
+    </Style>
+    <Style Selector="ToggleButton.focus-toggle:checked > TextBlock">
+      <Setter Property="Foreground" Value="White" />
     </Style>
 
     <!-- Pull tab -->
@@ -119,6 +135,13 @@
                   Margin="4,0,0,0">
             <TextBlock Text="Print" FontSize="11" Foreground="{DynamicResource accent}" />
           </Button>
+          <ToggleButton Classes="focus-toggle"
+                        IsChecked="{Binding IsFocusModeActive, Mode=OneWay}"
+                        Command="{Binding ToggleFocusModeCommand}"
+                        ToolTip.Tip="Toggle Focus Mode (Ctrl+Shift+F)"
+                        Margin="4,0,0,0">
+            <TextBlock Text="Focus" FontSize="11" Foreground="{DynamicResource accent}" />
+          </ToggleButton>
         </StackPanel>
       </Grid>
     </Border>

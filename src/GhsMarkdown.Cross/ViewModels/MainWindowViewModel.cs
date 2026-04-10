@@ -213,6 +213,14 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void SetPrintAction(Action printAction) => _printAction = printAction;
 
+    // ─── Focus Mode ─────────────────────────────────────────────────────────
+
+    private Action<bool>? _focusModeAction;
+    public bool IsFocusModeActive { get; private set; }
+    public IRelayCommand ToggleFocusModeCommand { get; }
+
+    public void SetFocusModeAction(Action<bool> action) => _focusModeAction = action;
+
     [RelayCommand]
     private void OpenPalette() => CommandPalette.Open();
 
@@ -255,6 +263,14 @@ public partial class MainWindowViewModel : ObservableObject
         Timeline         = timelineVm;
         ExportPanel      = exportPanel;
         PrintCommand     = new RelayCommand(() => _printAction?.Invoke());
+        ToggleFocusModeCommand = new RelayCommand(() =>
+        {
+            IsFocusModeActive = !IsFocusModeActive;
+            OnPropertyChanged(nameof(IsFocusModeActive));
+            _focusModeAction?.Invoke(IsFocusModeActive);
+            var s = _settingsService.Load();
+            _settingsService.Save(s with { FocusMode = IsFocusModeActive });
+        });
 
         // Auto-switch to Edit mode when export panel opens, restore on close
         ExportPanel.Opened += (_, _) =>
@@ -303,6 +319,7 @@ public partial class MainWindowViewModel : ObservableObject
         _autoSaveIntervalSeconds = settings.AutoSaveIntervalSeconds;
         _snippetLibraryPath      = settings.SnippetLibraryPath;
 #pragma warning restore MVVMTK0034
+        IsFocusModeActive        = settings.FocusMode;
 
         CurrentThemeName = themeService.CurrentThemeName;
         OnPropertyChanged(nameof(IsThemeDark));
@@ -406,6 +423,9 @@ public partial class MainWindowViewModel : ObservableObject
 
         // Print
         r.Register(new CommandDescriptor("file.print", "Print\u2026", "Actions", () => PrintCommand.Execute(null), "Ctrl+Shift+P"));
+
+        // Focus Mode
+        r.Register(new CommandDescriptor("view.focusMode", "Toggle Focus Mode", "Navigation", () => ToggleFocusModeCommand.Execute(null), "Ctrl+Shift+F"));
 
         // Settings
         r.Register(new CommandDescriptor("settings.theme.dark",  "Theme: GHS Dark",  "Settings", () => SetTheme("Dark")));
