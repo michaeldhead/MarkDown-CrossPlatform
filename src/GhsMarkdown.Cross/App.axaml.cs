@@ -43,6 +43,7 @@ public partial class App : Application
         services.AddSingleton<ExportPanelViewModel>();
         services.AddSingleton<FileBrowserViewModel>();
         services.AddSingleton<CommandPaletteViewModel>();
+        services.AddSingleton<JumpListService>();
         services.AddSingleton<MainWindowViewModel>();
         Services = services.BuildServiceProvider();
 
@@ -67,6 +68,13 @@ public partial class App : Application
                 DataContext = vm
             };
         }
+
+        // Windows Jump List — populate on startup + subscribe to changes
+        var jumpListService = Services.GetRequiredService<JumpListService>();
+        var fileService = Services.GetRequiredService<FileService>();
+        jumpListService.UpdateJumpList(fileService.GetRecentFiles());
+        fileService.RecentFilesChanged += (_, _) =>
+            jumpListService.UpdateJumpList(fileService.GetRecentFiles());
 
         // Open .md file passed as command-line argument
         var args = Environment.GetCommandLineArgs();
