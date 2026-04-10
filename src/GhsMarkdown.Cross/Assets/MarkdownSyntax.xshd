@@ -22,21 +22,21 @@
   <RuleSet>
 
     <!-- ═══ HEADINGS — Rule patterns must match at least 1 char in AvaloniaEdit 12 ═══ -->
-    <Rule color="Heading6">^######\s+\S.*</Rule>
-    <Rule color="Heading5">^#####\s+\S.*</Rule>
-    <Rule color="Heading4">^####\s+\S.*</Rule>
-    <Rule color="Heading3">^###\s+\S.*</Rule>
-    <Rule color="Heading2">^##\s+\S.*</Rule>
-    <Rule color="Heading1">^#\s+\S.*</Rule>
+    <Rule color="Heading6">^######\s+\S+</Rule>
+    <Rule color="Heading5">^#####\s+\S+</Rule>
+    <Rule color="Heading4">^####\s+\S+</Rule>
+    <Rule color="Heading3">^###\s+\S+</Rule>
+    <Rule color="Heading2">^##\s+\S+</Rule>
+    <Rule color="Heading1">^#\s+\S+</Rule>
 
     <!-- ═══ BLOCKQUOTES ═══ -->
-    <Rule color="Blockquote">^&gt;\s+\S.*</Rule>
+    <Rule color="Blockquote">^&gt;\s+\S+</Rule>
 
     <!-- ═══ UNORDERED LISTS ═══ -->
-    <Rule color="ListBullet">^\s*[-\*\+]\s+\S.*</Rule>
+    <Rule color="ListBullet">^\s*[-\*\+]\s+\S+</Rule>
 
     <!-- ═══ ORDERED LISTS ═══ -->
-    <Rule color="ListOrdered">^\s*\d+\.\s+\S.*</Rule>
+    <Rule color="ListOrdered">^\s*\d+\.\s+\S+</Rule>
 
     <!-- ═══ HORIZONTAL RULES ═══ -->
     <Rule color="HRule">^-{3,}\s*$</Rule>
