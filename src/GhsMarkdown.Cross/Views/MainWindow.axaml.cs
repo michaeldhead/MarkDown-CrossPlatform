@@ -315,6 +315,11 @@ public partial class MainWindow : Window
         // var xshd = HighlightingLoader.LoadXshd(reader);
         // _editor.SyntaxHighlighting = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
 
+        // Syntax highlighting via DocumentColorizingTransformer
+        // (replaces xshd — no zero-length match restrictions)
+        _editor.TextArea.TextView.LineTransformers.Add(
+            new MarkdownColorizingTransformer());
+
         _editor.Options.ShowTabs                = false;
         _editor.Options.IndentationSize         = 2;
         _editor.Options.ConvertTabsToSpaces     = true;
