@@ -28,20 +28,13 @@
                      Command="{Binding SetThemeCommand}"
                      CommandParameter="Dark"
                      IsChecked="{Binding IsThemeDark, Mode=OneWay}" />
-        <RadioButton x:Name="RadioInk"
-                     Content="GHS Ink"
+        <RadioButton x:Name="RadioLight"
+                     Content="GHS Light"
                      GroupName="GhsTheme"
                      Foreground="{DynamicResource text-primary}"
                      Command="{Binding SetThemeCommand}"
-                     CommandParameter="Ink"
-                     IsChecked="{Binding IsThemeInk, Mode=OneWay}" />
-        <RadioButton x:Name="RadioGlass"
-                     Content="GHS Glass"
-                     GroupName="GhsTheme"
-                     Foreground="{DynamicResource text-primary}"
-                     Command="{Binding SetThemeCommand}"
-                     CommandParameter="Glass"
-                     IsChecked="{Binding IsThemeGlass, Mode=OneWay}" />
+                     CommandParameter="Light"
+                     IsChecked="{Binding IsThemeLight, Mode=OneWay}" />
         <RadioButton x:Name="RadioAuto"
                      Content="Auto (OS)"
                      GroupName="GhsTheme"
