@@ -367,21 +367,17 @@ public partial class MainWindow : Window
                 {
                     try
                     {
-                        var caret = _editor.TextArea.Caret;
-                        var textView = _editor.TextArea.TextView;
+                        var lineNum = _editor.TextArea.Caret.Line;
+                        var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
                         var editorHeight = _editor.Bounds.Height;
-                        if (editorHeight <= 0) return;
+                        if (editorHeight <= 0 || lineHeight <= 0) return;
 
-                        var documentLine = _editor.Document.GetLineByNumber(caret.Line);
-                        var visualTop = textView.GetVisualTopByDocumentLine(documentLine.LineNumber);
-                        if (double.IsNaN(visualTop)) return;
-
-                        var lineHeight = textView.DefaultLineHeight;
-                        var targetScrollOffset = visualTop - (editorHeight / 2.0) + (lineHeight / 2.0);
-                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScrollOffset));
+                        var lineTop = (lineNum - 1) * lineHeight;
+                        var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
+                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
                     }
-                    catch { /* ignore during rapid typing */ }
-                }, DispatcherPriority.Render);
+                    catch { }
+                }, DispatcherPriority.Background);
             }
         };
     }
