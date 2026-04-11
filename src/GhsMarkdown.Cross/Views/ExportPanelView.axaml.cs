@@ -8,7 +8,10 @@ namespace GhsMarkdown.Cross.Views;
 public partial class ExportPanelView : UserControl
 {
     private bool _webViewReady;
+    private bool _webViewCreated;
     private NativeWebView? _exportWebView;
+    private Grid? _webViewHost;
+    private ExportPanelViewModel? _vm;
 
     public ExportPanelView()
     {
@@ -29,20 +32,15 @@ public partial class ExportPanelView : UserControl
     private void OnDataContextChanged(object? sender, EventArgs e)
     {
         if (DataContext is not ExportPanelViewModel vm) return;
+        _vm = vm;
+        _webViewHost = this.FindControl<Grid>("ExportWebViewHost");
 
-        _exportWebView = this.FindControl<NativeWebView>("ExportPreviewWebView");
-        if (_exportWebView is not null)
-        {
-            _exportWebView.AdapterCreated += (_, _) =>
-            {
-                _webViewReady = true;
-                if (!string.IsNullOrEmpty(vm.PreviewHtml))
-                    _exportWebView.NavigateToString(vm.PreviewHtml);
-            };
-        }
-
+        // Create WebView lazily when panel opens
         vm.PropertyChanged += (_, pe) =>
         {
+            if (pe.PropertyName == nameof(ExportPanelViewModel.IsOpen) && vm.IsOpen)
+                EnsureWebViewCreated();
+
             if (pe.PropertyName == nameof(ExportPanelViewModel.PreviewHtml) && _webViewReady && _exportWebView is not null)
                 _exportWebView.NavigateToString(vm.PreviewHtml);
         };
@@ -50,17 +48,17 @@ public partial class ExportPanelView : UserControl
         // Wire up PDF export via WebView's PrintToPdfStreamAsync
         vm.ExportWithWebViewFunc = async (format, markdownContent, themedCss, filePath) =>
         {
+            EnsureWebViewCreated();
+
             if (_exportWebView is null || !_webViewReady)
                 return new ExportResult { Success = false, ErrorMessage = "WebView not ready for PDF export." };
 
             try
             {
-                // Navigate to styled HTML in the export WebView
                 var exportService = vm.GetExportService();
                 var html = exportService.BuildStyledHtml(markdownContent, themedCss);
                 _exportWebView.NavigateToString(html);
 
-                // Wait for navigation to complete
                 var tcs = new TaskCompletionSource<bool>();
                 EventHandler<Avalonia.Controls.WebViewNavigationCompletedEventArgs>? handler = null;
                 handler = (s, args) =>
@@ -71,7 +69,6 @@ public partial class ExportPanelView : UserControl
                 _exportWebView.NavigationCompleted += handler;
                 await Task.WhenAny(tcs.Task, Task.Delay(5000));
 
-                // Print to PDF
                 using var pdfStream = await _exportWebView.PrintToPdfStreamAsync();
                 using var fileStream = File.Create(filePath);
                 await pdfStream.CopyToAsync(fileStream);
@@ -82,6 +79,22 @@ public partial class ExportPanelView : UserControl
             {
                 return new ExportResult { Success = false, ErrorMessage = ex.Message };
             }
+        };
+    }
+
+    private void EnsureWebViewCreated()
+    {
+        if (_webViewCreated || _webViewHost is null) return;
+        _webViewCreated = true;
+
+        _exportWebView = new NativeWebView();
+        _webViewHost.Children.Add(_exportWebView);
+
+        _exportWebView.AdapterCreated += (_, _) =>
+        {
+            _webViewReady = true;
+            if (_vm is not null && !string.IsNullOrEmpty(_vm.PreviewHtml))
+                _exportWebView.NavigateToString(_vm.PreviewHtml);
         };
     }
 }
