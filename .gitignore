@@ -27,6 +27,14 @@ installer/macos/*.dmg
 # ── Internal implementation notes ────────────────────────────────
 docs/NOTES.md
 
+# ── Prompt and working files ─────────────────────────────────────
+BL*.md
+docs/BL*.md
+PHASE*.md
+docs/PHASE*.md
+*-PROMPT.md
+GITHUB-*.md
+
 # ── User data generated at runtime ───────────────────────────────
 *.draft
 **/snapshots/

@@ -271,7 +271,7 @@
         <Border Grid.Column="0"
                 IsVisible="{Binding EditorPaneVisible}"
                 ClipToBounds="True">
-          <ae:TextEditor x:Name="MarkdownEditor"
+          <views:CenteringTextEditor x:Name="MarkdownEditor"
                          FontFamily="Cascadia Code,Consolas,Menlo,monospace"
                          FontSize="13"
                          ShowLineNumbers="True"
