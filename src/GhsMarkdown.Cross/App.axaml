@@ -24,8 +24,8 @@
     <DataTemplate DataType="{x:Type vm:SnippetsPlaceholderViewModel}">
       <views:SnippetsPlaceholderView />
     </DataTemplate>
-    <DataTemplate DataType="{x:Type vm:AiAssistPlaceholderViewModel}">
-      <views:AiAssistPlaceholderView />
+    <DataTemplate DataType="{x:Type vm:AiAssistViewModel}">
+      <views:AiAssistView />
     </DataTemplate>
     <DataTemplate DataType="{x:Type vm:SnippetStudioViewModel}">
       <views:SnippetStudioView />
