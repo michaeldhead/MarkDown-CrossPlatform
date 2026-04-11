@@ -522,6 +522,38 @@ public partial class MainWindow : Window
         registry.Register(new CommandDescriptor("editor.h4", "Heading 4", "Editor", () => SetHeading(4), "Ctrl+4"));
         registry.Register(new CommandDescriptor("editor.h5", "Heading 5", "Editor", () => SetHeading(5), "Ctrl+5"));
         registry.Register(new CommandDescriptor("editor.h6", "Heading 6", "Editor", () => SetHeading(6), "Ctrl+6"));
+
+        // New commands for formatting toolbar
+        registry.Register(new CommandDescriptor("editor.strikethrough", "Strikethrough",
+            "Editor", () => WrapSelection("~~", "~~"), ""));
+        registry.Register(new CommandDescriptor("editor.unorderedList", "Unordered List",
+            "Editor", () =>
+            {
+                var ta = _editor!.TextArea;
+                var line = _editor.Document.GetLineByNumber(ta.Caret.Line);
+                var text = _editor.Document.GetText(line.Offset, line.Length);
+                if (!text.StartsWith("- "))
+                    _editor.Document.Insert(line.Offset, "- ");
+            }, ""));
+        registry.Register(new CommandDescriptor("editor.orderedList", "Ordered List",
+            "Editor", () =>
+            {
+                var ta = _editor!.TextArea;
+                var line = _editor.Document.GetLineByNumber(ta.Caret.Line);
+                var text = _editor.Document.GetText(line.Offset, line.Length);
+                if (!text.StartsWith("1. "))
+                    _editor.Document.Insert(line.Offset, "1. ");
+            }, ""));
+        registry.Register(new CommandDescriptor("editor.table", "Insert Table",
+            "Editor", () =>
+            {
+                var ta = _editor!.TextArea;
+                var line = _editor.Document.GetLineByNumber(ta.Caret.Line);
+                _editor.Document.Insert(line.EndOffset,
+                    "\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n");
+            }, ""));
+        registry.Register(new CommandDescriptor("editor.image", "Insert Image",
+            "Editor", () => WrapSelection("![", "](image-url)"), ""));
     }
 
     // ─── NativeWebView ────────────────────────────────────────────────────────
@@ -724,6 +756,7 @@ public partial class MainWindow : Window
                   if (key==='W'||key==='w') return send('view.previewOnly');
                   if (key==='H'||key==='h') return send('editor.hr');
                   if (key==='F'||key==='f') return send('view.focusMode');
+                  if (key==='B'||key==='b') return send('view.formattingToolbar');
                   if (key==='P'||key==='p') return send('file.print');
                 }
               });

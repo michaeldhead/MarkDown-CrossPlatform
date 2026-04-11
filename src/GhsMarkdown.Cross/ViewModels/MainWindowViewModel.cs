@@ -221,6 +221,26 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void SetFocusModeAction(Action<bool> action) => _focusModeAction = action;
 
+    // ─── Formatting Toolbar ──────────────────────────────────────────────────
+
+    public bool ShowFormattingToolbar { get; private set; }
+    public IRelayCommand ToggleFormattingToolbarCommand { get; }
+
+    public IRelayCommand FormatBoldCommand          { get; }
+    public IRelayCommand FormatItalicCommand        { get; }
+    public IRelayCommand FormatStrikethroughCommand { get; }
+    public IRelayCommand FormatCodeCommand          { get; }
+    public IRelayCommand FormatH1Command            { get; }
+    public IRelayCommand FormatH2Command            { get; }
+    public IRelayCommand FormatH3Command            { get; }
+    public IRelayCommand FormatH4Command            { get; }
+    public IRelayCommand FormatUnorderedListCommand { get; }
+    public IRelayCommand FormatOrderedListCommand   { get; }
+    public IRelayCommand FormatTableCommand         { get; }
+    public IRelayCommand FormatHRCommand            { get; }
+    public IRelayCommand FormatLinkCommand          { get; }
+    public IRelayCommand FormatImageCommand         { get; }
+
     [RelayCommand]
     private void OpenPalette() => CommandPalette.Open();
 
@@ -271,6 +291,29 @@ public partial class MainWindowViewModel : ObservableObject
             var s = _settingsService.Load();
             _settingsService.Save(s with { FocusMode = IsFocusModeActive });
         });
+        ToggleFormattingToolbarCommand = new RelayCommand(() =>
+        {
+            ShowFormattingToolbar = !ShowFormattingToolbar;
+            OnPropertyChanged(nameof(ShowFormattingToolbar));
+            var s = _settingsService.Load();
+            _settingsService.Save(s with { ShowFormattingToolbar = ShowFormattingToolbar });
+        });
+
+        // Formatting toolbar commands — delegate to CommandRegistry
+        FormatBoldCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.bold"));
+        FormatItalicCommand        = new RelayCommand(() => _commandRegistry.Execute("editor.italic"));
+        FormatStrikethroughCommand = new RelayCommand(() => _commandRegistry.Execute("editor.strikethrough"));
+        FormatCodeCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.inlineCode"));
+        FormatH1Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h1"));
+        FormatH2Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h2"));
+        FormatH3Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h3"));
+        FormatH4Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h4"));
+        FormatUnorderedListCommand = new RelayCommand(() => _commandRegistry.Execute("editor.unorderedList"));
+        FormatOrderedListCommand   = new RelayCommand(() => _commandRegistry.Execute("editor.orderedList"));
+        FormatTableCommand         = new RelayCommand(() => _commandRegistry.Execute("editor.table"));
+        FormatHRCommand            = new RelayCommand(() => _commandRegistry.Execute("editor.hr"));
+        FormatLinkCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.link"));
+        FormatImageCommand         = new RelayCommand(() => _commandRegistry.Execute("editor.image"));
 
         // Auto-switch to Edit mode when export panel opens, restore on close
         ExportPanel.Opened += (_, _) =>
@@ -320,6 +363,7 @@ public partial class MainWindowViewModel : ObservableObject
         _snippetLibraryPath      = settings.SnippetLibraryPath;
 #pragma warning restore MVVMTK0034
         IsFocusModeActive        = settings.FocusMode;
+        ShowFormattingToolbar    = settings.ShowFormattingToolbar;
 
         CurrentThemeName = themeService.CurrentThemeName;
         OnPropertyChanged(nameof(IsThemeDark));
@@ -426,6 +470,9 @@ public partial class MainWindowViewModel : ObservableObject
 
         // Focus Mode
         r.Register(new CommandDescriptor("view.focusMode", "Toggle Focus Mode", "Navigation", () => ToggleFocusModeCommand.Execute(null), "Ctrl+Shift+F"));
+
+        // Formatting Toolbar
+        r.Register(new CommandDescriptor("view.formattingToolbar", "Toggle Formatting Toolbar", "Navigation", () => ToggleFormattingToolbarCommand.Execute(null), "Ctrl+Shift+B"));
 
         // Settings
         r.Register(new CommandDescriptor("settings.theme.dark",  "Theme: GHS Dark",  "Settings", () => SetTheme("Dark")));
