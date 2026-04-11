@@ -88,6 +88,15 @@ public partial class ExportPanelView : UserControl
         _webViewCreated = true;
 
         _exportWebView = new NativeWebView();
+
+        _exportWebView.EnvironmentRequested += (_, args) =>
+        {
+            var prop = args.GetType().GetProperty("UserDataFolder");
+            prop?.SetValue(args, Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "GHSMarkdownEditor", "WebView2Export"));
+        };
+
         _webViewHost.Children.Add(_exportWebView);
 
         _exportWebView.AdapterCreated += (_, _) =>

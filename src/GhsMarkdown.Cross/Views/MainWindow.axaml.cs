@@ -555,6 +555,14 @@ public partial class MainWindow : Window
 
         try
         {
+            _webView.EnvironmentRequested += (_, args) =>
+            {
+                var prop = args.GetType().GetProperty("UserDataFolder");
+                prop?.SetValue(args, Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "GHSMarkdownEditor", "WebView2Main"));
+            };
+
             _webView.WebMessageReceived += OnWebViewMessage;
 
             _webView.NavigationCompleted += OnNavigationCompleted;
