@@ -35,7 +35,8 @@ public partial class App : Application
         services.AddSingleton<SnippetModeController>();
         services.AddSingleton<SnippetInsertionService>();
         services.AddSingleton<SnippetsPlaceholderViewModel>();
-        services.AddSingleton<AiAssistPlaceholderViewModel>();
+        services.AddSingleton<AiAssistService>();
+        services.AddSingleton<AiAssistViewModel>();
         services.AddSingleton<SnapshotService>();
         services.AddSingleton<TimelineViewModel>();
         services.AddSingleton<SnippetStudioViewModel>();

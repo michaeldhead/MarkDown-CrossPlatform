@@ -18,7 +18,7 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly TopologyViewModel _topologyVm;
     private readonly OutlineViewModel _outlineVm;
     private readonly SnippetStudioViewModel _snippetStudioVm;
-    private readonly AiAssistPlaceholderViewModel _aiAssistVm;
+    private readonly AiAssistViewModel _aiAssistVm;
     private readonly SnapshotService _snapshotService;
     private readonly EditorViewModel _editorVm;
     private readonly FileBrowserViewModel _fileBrowserVm;
@@ -96,6 +96,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private double _splitRatio = 0.5;
     [ObservableProperty] private GutterSyncState _gutterSyncState = GutterSyncState.Synced;
     [ObservableProperty] private int _gutterWordCount = 0;
+    [ObservableProperty] private string _statusBarText = "Ln 1 · Col 1 · 0 words";
 
     public IBrush GutterDotBrush
     {
@@ -162,6 +163,33 @@ public partial class MainWindowViewModel : ObservableObject
 
     public event EventHandler? EditorFontChanged;
 
+    // ─── AI Assist API Key ──────────────────────────────────────────────────
+
+    private string _anthropicApiKey = "";
+    public string AnthropicApiKey
+    {
+        get => _anthropicApiKey;
+        set
+        {
+            if (SetProperty(ref _anthropicApiKey, value))
+            {
+                var s = _settingsService.Load();
+                _settingsService.Save(s with { AnthropicApiKey = value });
+                _aiAssistVm.RefreshConfiguration();
+            }
+        }
+    }
+
+    [ObservableProperty] private string _apiKeyStatus = "";
+
+    [RelayCommand]
+    private async Task TestApiKey()
+    {
+        ApiKeyStatus = "Testing...";
+        var ok = await _aiAssistVm.TestConnectionAsync();
+        ApiKeyStatus = ok ? "Connected" : "Failed - check key";
+    }
+
     public IEnumerable<CommandDescriptor> ShortcutCommands =>
         _commandRegistry.GetAll()
             .Where(c => c.KeyboardShortcut is not null)
@@ -172,13 +200,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool IsOutlineSlotActive  => RightPanelSlot.ActiveOccupant is OutlineViewModel;
     public bool IsSnippetsSlotActive => RightPanelSlot.ActiveOccupant is SnippetStudioViewModel;
-    public bool IsAiAssistSlotActive => RightPanelSlot.ActiveOccupant is AiAssistPlaceholderViewModel;
+    public bool IsAiAssistSlotActive => RightPanelSlot.ActiveOccupant is AiAssistViewModel;
 
     public string RightPanelSlotName => RightPanelSlot.ActiveOccupant switch
     {
         OutlineViewModel              => "Outline",
         SnippetStudioViewModel        => "Snippets",
-        AiAssistPlaceholderViewModel  => "AI Assist",
+        AiAssistViewModel  => "AI Assist",
         _                             => "Panel"
     };
 
@@ -221,6 +249,11 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void SetFocusModeAction(Action<bool> action) => _focusModeAction = action;
 
+    // ─── Focus Editor ───────────────────────────────────────────────────────
+
+    private Action? _focusEditorAction;
+    public void SetFocusEditorAction(Action action) => _focusEditorAction = action;
+
     // ─── Formatting Toolbar ──────────────────────────────────────────────────
 
     public bool ShowFormattingToolbar { get; private set; }
@@ -258,7 +291,7 @@ public partial class MainWindowViewModel : ObservableObject
         TopologyViewModel topologyVm,
         OutlineViewModel outlineVm,
         SnippetStudioViewModel snippetStudioVm,
-        AiAssistPlaceholderViewModel aiAssistVm,
+        AiAssistViewModel aiAssistVm,
         CommandPaletteViewModel commandPalette,
         SnapshotService snapshotService,
         TimelineViewModel timelineVm,
@@ -300,20 +333,20 @@ public partial class MainWindowViewModel : ObservableObject
         });
 
         // Formatting toolbar commands — delegate to CommandRegistry
-        FormatBoldCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.bold"));
-        FormatItalicCommand        = new RelayCommand(() => _commandRegistry.Execute("editor.italic"));
-        FormatStrikethroughCommand = new RelayCommand(() => _commandRegistry.Execute("editor.strikethrough"));
-        FormatCodeCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.inlineCode"));
-        FormatH1Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h1"));
-        FormatH2Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h2"));
-        FormatH3Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h3"));
-        FormatH4Command            = new RelayCommand(() => _commandRegistry.Execute("editor.h4"));
-        FormatUnorderedListCommand = new RelayCommand(() => _commandRegistry.Execute("editor.unorderedList"));
-        FormatOrderedListCommand   = new RelayCommand(() => _commandRegistry.Execute("editor.orderedList"));
-        FormatTableCommand         = new RelayCommand(() => _commandRegistry.Execute("editor.table"));
-        FormatHRCommand            = new RelayCommand(() => _commandRegistry.Execute("editor.hr"));
-        FormatLinkCommand          = new RelayCommand(() => _commandRegistry.Execute("editor.link"));
-        FormatImageCommand         = new RelayCommand(() => _commandRegistry.Execute("editor.image"));
+        FormatBoldCommand          = new RelayCommand(() => { _commandRegistry.Execute("editor.bold"); _focusEditorAction?.Invoke(); });
+        FormatItalicCommand        = new RelayCommand(() => { _commandRegistry.Execute("editor.italic"); _focusEditorAction?.Invoke(); });
+        FormatStrikethroughCommand = new RelayCommand(() => { _commandRegistry.Execute("editor.strikethrough"); _focusEditorAction?.Invoke(); });
+        FormatCodeCommand          = new RelayCommand(() => { _commandRegistry.Execute("editor.inlineCode"); _focusEditorAction?.Invoke(); });
+        FormatH1Command            = new RelayCommand(() => { _commandRegistry.Execute("editor.h1"); _focusEditorAction?.Invoke(); });
+        FormatH2Command            = new RelayCommand(() => { _commandRegistry.Execute("editor.h2"); _focusEditorAction?.Invoke(); });
+        FormatH3Command            = new RelayCommand(() => { _commandRegistry.Execute("editor.h3"); _focusEditorAction?.Invoke(); });
+        FormatH4Command            = new RelayCommand(() => { _commandRegistry.Execute("editor.h4"); _focusEditorAction?.Invoke(); });
+        FormatUnorderedListCommand = new RelayCommand(() => { _commandRegistry.Execute("editor.unorderedList"); _focusEditorAction?.Invoke(); });
+        FormatOrderedListCommand   = new RelayCommand(() => { _commandRegistry.Execute("editor.orderedList"); _focusEditorAction?.Invoke(); });
+        FormatTableCommand         = new RelayCommand(() => { _commandRegistry.Execute("editor.table"); _focusEditorAction?.Invoke(); });
+        FormatHRCommand            = new RelayCommand(() => { _commandRegistry.Execute("editor.hr"); _focusEditorAction?.Invoke(); });
+        FormatLinkCommand          = new RelayCommand(() => { _commandRegistry.Execute("editor.link"); _focusEditorAction?.Invoke(); });
+        FormatImageCommand         = new RelayCommand(() => { _commandRegistry.Execute("editor.image"); _focusEditorAction?.Invoke(); });
 
         // Auto-switch to Edit mode when export panel opens, restore on close
         ExportPanel.Opened += (_, _) =>
@@ -361,9 +394,31 @@ public partial class MainWindowViewModel : ObservableObject
         _editorFontSize          = settings.EditorFontSize;
         _autoSaveIntervalSeconds = settings.AutoSaveIntervalSeconds;
         _snippetLibraryPath      = settings.SnippetLibraryPath;
+        _anthropicApiKey         = settings.AnthropicApiKey;
+
+        // Restore left panel open/closed state and active icon
+        if (!settings.LeftPanelOpen)
+        {
+            _isLeftPanelOpen = false;
+            _leftPanelWidth  = 0.0;
+        }
+        if (!string.IsNullOrEmpty(settings.ActiveIcon))
+            _activeIcon = settings.ActiveIcon;
 #pragma warning restore MVVMTK0034
         IsFocusModeActive        = settings.FocusMode;
         ShowFormattingToolbar    = settings.ShowFormattingToolbar;
+
+        // Swap left panel occupant to match restored icon
+        if (_isLeftPanelOpen)
+        {
+            switch (_activeIcon)
+            {
+                case "Topology": LeftPanelSlot.SwapOccupant(topologyVm); break;
+                case "Snippets": LeftPanelSlot.SwapOccupant(_snippetStudioVm); break;
+                case "Search":   LeftPanelSlot.SwapOccupant(_placeholderVm); break;
+                case "Files":    LeftPanelSlot.SwapOccupant(_fileBrowserVm); break;
+            }
+        }
 
         CurrentThemeName = themeService.CurrentThemeName;
         OnPropertyChanged(nameof(IsThemeDark));
@@ -593,6 +648,10 @@ public partial class MainWindowViewModel : ObservableObject
         OnPropertyChanged(nameof(IsFilesActive));
         OnPropertyChanged(nameof(IsSnippetsActive));
         OnPropertyChanged(nameof(IsSearchActive));
+
+        // Persist panel open/closed state and active icon
+        var s = _settingsService.Load();
+        _settingsService.Save(s with { LeftPanelOpen = IsLeftPanelOpen, ActiveIcon = _activeIcon });
     }
 
     [RelayCommand]

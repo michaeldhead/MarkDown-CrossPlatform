@@ -57,6 +57,7 @@ public partial class MainWindow : Window
 
     // ─── Word count ───────────────────────────────────────────────────────────
     private CancellationTokenSource? _wordCountCts;
+    private int _lastTotalWordCount;
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -363,13 +364,29 @@ public partial class MainWindow : Window
         {
             var offset = _editor.TextArea.Caret.Offset;
             var line   = _editor.TextArea.Caret.Line;
-            ScheduleWordCountUpdate(offset);
+            var col    = _editor.TextArea.Caret.Column + 1; // 1-based display
+
+            // Update status bar line/col immediately (total word count updates async)
+            if (_mainVm is not null)
+                _mainVm.StatusBarText = $"Ln {line} · Col {col} · {_lastTotalWordCount} words";
+
+            ScheduleWordCountUpdate(offset, line, col);
             ScheduleHighlightUpdate(line);
 
             // Feed caret line to EditorViewModel for TopologyViewModel subscription
             if (_editorVm is not null)
                 _editorVm.CaretLine = line;
         };
+
+        // Wire focus-return delegate for toolbar buttons (must be after _editor is confirmed non-null)
+        _mainVm?.SetFocusEditorAction(() =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                _editor?.Focus();
+                _editor?.TextArea.Focus();
+            }, DispatcherPriority.Input);
+        });
     }
 
     // ─── Editor theme colors ─────────────────────────────────────────────────
@@ -731,8 +748,16 @@ public partial class MainWindow : Window
                 var ctrl = e.ctrlKey, shift = e.shiftKey, key = e.key;
                 function send(id) {
                   e.preventDefault(); e.stopPropagation();
+                  var sel = window.getSelection();
+                  var selectedText = sel ? sel.toString() : '';
+                  var anchorEl = sel && sel.anchorNode ? sel.anchorNode.parentElement : null;
+                  var sourceLine = null;
+                  if (anchorEl) {
+                    var block = anchorEl.closest('[data-source-line]');
+                    if (block) sourceLine = parseInt(block.getAttribute('data-source-line'));
+                  }
                   try { window.chrome.webview.postMessage(
-                    JSON.stringify({type:'shortcut',commandId:id})); } catch(ex) {}
+                    JSON.stringify({type:'shortcut',commandId:id,selectedText:selectedText,previewSourceLine:sourceLine})); } catch(ex) {}
                 }
                 if (ctrl && !shift) {
                   if (key==='n'||key==='N') return send('file.new');
@@ -788,15 +813,70 @@ public partial class MainWindow : Window
                     HandleInlineEdit(msg.SourceLine, msg.SourceEndLine, msg.Tag);
                     break;
                 case "shortcut":
-                    var cmdId = msg.CommandId;
+                    var cmdId        = msg.CommandId;
+                    var selectedText = msg.SelectedText;
+                    var previewLine  = msg.PreviewSourceLine;
+
                     Dispatcher.UIThread.Post(() =>
                     {
                         if (cmdId is null) return;
 
-                        // Editor formatting commands: focus editor first
-                        if (cmdId.StartsWith("editor."))
-                            _editor?.Focus();
+                        // For editor formatting commands with a preview selection:
+                        // sync the editor to that source line and select the matching text
+                        if (cmdId.StartsWith("editor.") &&
+                            !string.IsNullOrEmpty(selectedText) &&
+                            previewLine.HasValue &&
+                            _editor is not null &&
+                            _editorVm is not null)
+                        {
+                            var docText = _editorVm.DocumentText;
+                            var lines   = docText.Split('\n');
+                            var lineIdx = previewLine.Value - 1; // 0-based
 
+                            // Search for selectedText within a window around the source line
+                            var searchStart = Math.Max(0, lineIdx - 2);
+                            var searchEnd   = Math.Min(lines.Length - 1, lineIdx + 5);
+
+                            // Build offset of searchStart line
+                            var lineOffset = 0;
+                            for (int i = 0; i < searchStart; i++)
+                                lineOffset += lines[i].Length + 1; // +1 for \n
+
+                            // Build the text chunk to search in
+                            var chunk = string.Join('\n', lines[searchStart..(searchEnd + 1)]);
+
+                            // Find selectedText in chunk
+                            var plainSelected = selectedText.Trim();
+                            var idx = chunk.IndexOf(plainSelected, StringComparison.Ordinal);
+
+                            if (idx >= 0)
+                            {
+                                var absoluteOffset = lineOffset + idx;
+
+                                _editor.TextArea.Caret.Line   = previewLine.Value;
+                                _editor.TextArea.Caret.Offset = absoluteOffset;
+                                _editor.ScrollToLine(previewLine.Value);
+
+                                // Select the found text
+                                _editor.TextArea.Selection =
+                                    AvaloniaEdit.Editing.Selection.Create(
+                                        _editor.TextArea,
+                                        absoluteOffset,
+                                        absoluteOffset + plainSelected.Length);
+                            }
+                            else
+                            {
+                                // Fallback: just move caret to source line, no selection
+                                _editor.TextArea.Caret.Line = previewLine.Value;
+                                _editor.ScrollToLine(previewLine.Value);
+                            }
+                        }
+
+                        // Focus editor so the formatting command has a target
+                        _editor?.Focus();
+                        _editor?.TextArea.Focus();
+
+                        // Execute the formatting command
                         if (cmdId == "palette.open")
                             _mainVm?.CommandPalette.Open();
                         else
@@ -996,7 +1076,7 @@ public partial class MainWindow : Window
 
     // ─── Word count ───────────────────────────────────────────────────────────
 
-    private void ScheduleWordCountUpdate(int cursorOffset)
+    private void ScheduleWordCountUpdate(int cursorOffset, int line, int col)
     {
         _wordCountCts?.Cancel();
         _wordCountCts = new CancellationTokenSource();
@@ -1009,10 +1089,16 @@ public partial class MainWindow : Window
             {
                 await Task.Delay(150, token);
                 if (token.IsCancellationRequested) return;
-                var count = ComputeWordCount(text, cursorOffset);
+                var sectionCount = ComputeWordCount(text, cursorOffset);
+                var totalCount   = CountWords(text);
                 Dispatcher.UIThread.Post(() =>
                 {
-                    if (_mainVm is not null) _mainVm.GutterWordCount = count;
+                    if (_mainVm is not null)
+                    {
+                        _mainVm.GutterWordCount = sectionCount;
+                        _lastTotalWordCount = totalCount;
+                        _mainVm.StatusBarText = $"Ln {line} · Col {col} · {totalCount} words";
+                    }
                 });
             }
             catch (OperationCanceledException) { }
@@ -1342,12 +1428,14 @@ public partial class MainWindow : Window
     // ─── WebMessage record ────────────────────────────────────────────────────
 
     private record WebMessage(
-        [property: JsonPropertyName("type")]          string?  Type,
-        [property: JsonPropertyName("commandId")]     string?  CommandId,
-        [property: JsonPropertyName("sourceLine")]    int      SourceLine,
-        [property: JsonPropertyName("sourceEndLine")] int      SourceEndLine,
-        [property: JsonPropertyName("tag")]           string?  Tag,
-        [property: JsonPropertyName("y")]             double   ScrollY,
-        [property: JsonPropertyName("h")]             double   ScrollH
+        [property: JsonPropertyName("type")]              string?  Type,
+        [property: JsonPropertyName("commandId")]         string?  CommandId,
+        [property: JsonPropertyName("sourceLine")]        int      SourceLine,
+        [property: JsonPropertyName("sourceEndLine")]     int      SourceEndLine,
+        [property: JsonPropertyName("tag")]               string?  Tag,
+        [property: JsonPropertyName("y")]                 double   ScrollY,
+        [property: JsonPropertyName("h")]                 double   ScrollH,
+        [property: JsonPropertyName("selectedText")]      string?  SelectedText,
+        [property: JsonPropertyName("previewSourceLine")] int?     PreviewSourceLine
     );
 }

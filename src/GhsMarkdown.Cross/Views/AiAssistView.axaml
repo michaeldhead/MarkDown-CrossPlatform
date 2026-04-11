@@ -1,0 +1,157 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:GhsMarkdown.Cross.ViewModels"
+             x:Class="GhsMarkdown.Cross.Views.AiAssistView"
+             x:DataType="vm:AiAssistViewModel">
+
+  <DockPanel Margin="0">
+
+    <!-- Top: Prompt input area -->
+    <Border DockPanel.Dock="Top"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,0,0,1"
+            Padding="8">
+      <StackPanel Spacing="6">
+
+        <!-- Include document toggle -->
+        <CheckBox IsChecked="{Binding IncludeDocument}"
+                  FontSize="11"
+                  Foreground="{DynamicResource text-secondary}">
+          Include document context
+        </CheckBox>
+
+        <!-- Prompt TextBox -->
+        <TextBox Text="{Binding Prompt}"
+                 PlaceholderText="Ask Claude anything about your document..."
+                 AcceptsReturn="True"
+                 MaxHeight="120"
+                 TextWrapping="Wrap"
+                 FontSize="12"
+                 Padding="6" />
+
+        <!-- Send / Cancel buttons -->
+        <Grid ColumnDefinitions="*,Auto,Auto">
+          <TextBlock Grid.Column="0"
+                     Text="{Binding StatusMessage}"
+                     FontSize="10"
+                     Foreground="{DynamicResource text-hint}"
+                     VerticalAlignment="Center" />
+          <Button Grid.Column="1"
+                  Command="{Binding CancelCommand}"
+                  IsVisible="{Binding IsStreaming}"
+                  Content="Stop"
+                  FontSize="11"
+                  Padding="8,4"
+                  Margin="4,0,0,0"
+                  Foreground="{DynamicResource text-secondary}"
+                  Background="Transparent"
+                  BorderThickness="0" />
+          <Button Grid.Column="2"
+                  Command="{Binding SendCommand}"
+                  Content="Ask Claude"
+                  FontSize="11"
+                  FontWeight="Medium"
+                  Padding="10,4"
+                  Margin="4,0,0,0"
+                  BorderThickness="0"
+                  CornerRadius="4">
+            <Button.Styles>
+              <Style Selector="Button">
+                <Setter Property="Background" Value="#4A9EFF" />
+                <Setter Property="Foreground" Value="White" />
+              </Style>
+              <Style Selector="Button:pointerover /template/ ContentPresenter">
+                <Setter Property="Background" Value="#3A8EEF" />
+                <Setter Property="TextElement.Foreground" Value="White" />
+              </Style>
+              <Style Selector="Button:pressed /template/ ContentPresenter">
+                <Setter Property="Background" Value="#2A7EDF" />
+              </Style>
+              <Style Selector="Button:disabled /template/ ContentPresenter">
+                <Setter Property="Background" Value="#2A4A6A" />
+                <Setter Property="TextElement.Foreground" Value="#888888" />
+              </Style>
+            </Button.Styles>
+          </Button>
+        </Grid>
+
+      </StackPanel>
+    </Border>
+
+    <!-- Bottom: Action buttons -->
+    <Border DockPanel.Dock="Bottom"
+            Background="{DynamicResource bg-toolbar}"
+            BorderBrush="{DynamicResource border}"
+            BorderThickness="0,1,0,0"
+            Padding="6,4"
+            IsVisible="{Binding Response, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+      <StackPanel Orientation="Horizontal" Spacing="4">
+        <Button Command="{Binding CopyResponseCommand}"
+                Content="Copy"
+                FontSize="10"
+                Padding="6,3"
+                Background="Transparent"
+                BorderBrush="{DynamicResource border}"
+                BorderThickness="1"
+                CornerRadius="3"
+                Foreground="{DynamicResource text-secondary}" />
+        <Button Command="{Binding InsertResponseCommand}"
+                Content="Insert into doc"
+                FontSize="10"
+                Padding="6,3"
+                Background="Transparent"
+                BorderBrush="{DynamicResource border}"
+                BorderThickness="1"
+                CornerRadius="3"
+                Foreground="{DynamicResource accent}" />
+        <Button Command="{Binding ClearResponseCommand}"
+                Content="Clear"
+                FontSize="10"
+                Padding="6,3"
+                Background="Transparent"
+                BorderBrush="{DynamicResource border}"
+                BorderThickness="1"
+                CornerRadius="3"
+                Foreground="{DynamicResource text-hint}" />
+      </StackPanel>
+    </Border>
+
+    <!-- Center: Response area -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+      <Panel>
+
+        <!-- Not configured message -->
+        <StackPanel IsVisible="{Binding !IsConfigured}"
+                    VerticalAlignment="Center"
+                    HorizontalAlignment="Center"
+                    Margin="16"
+                    Spacing="8">
+          <TextBlock Text="API key not configured"
+                     FontSize="12"
+                     FontWeight="Medium"
+                     Foreground="{DynamicResource text-secondary}"
+                     HorizontalAlignment="Center" />
+          <TextBlock Text="Add your Anthropic API key in Settings."
+                     FontSize="11"
+                     Foreground="{DynamicResource text-hint}"
+                     TextWrapping="Wrap"
+                     HorizontalAlignment="Center"
+                     TextAlignment="Center" />
+        </StackPanel>
+
+        <!-- Response text -->
+        <SelectableTextBlock IsVisible="{Binding IsConfigured}"
+                             Text="{Binding Response}"
+                             FontSize="12"
+                             Foreground="{DynamicResource text-primary}"
+                             TextWrapping="Wrap"
+                             Margin="10,8"
+                             FontFamily="Cascadia Code,Consolas,monospace" />
+
+      </Panel>
+    </ScrollViewer>
+
+  </DockPanel>
+
+</UserControl>

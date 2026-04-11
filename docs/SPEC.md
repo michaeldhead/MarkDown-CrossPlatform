@@ -46,10 +46,9 @@
 | Name | Base | Description |
 |---|---|---|
 | **GHS Dark** | Dark Chrome | Default. Near-black shell (#141414), GHS blue accent (#4A9EFF), subtle panel chrome. |
-| **GHS Ink** | Editorial Light | Cream/off-white (#F9F6F0), generous line spacing, serif preview font. |
-| **GHS Glass** | Glassmorphism | Translucent panels, blur/depth effects. Optional opt-in — not default. Best-effort on macOS; not guaranteed on Linux. |
+| **GHS Light** | Editorial Light | Cream/off-white (#F9F6F0), generous line spacing. Renamed from GHS Ink in BL-08. |
 
-Auto mode maps GHS Dark ↔ GHS Ink based on OS `Appearance` setting. GHS Glass is user-selected only.
+Auto mode maps GHS Dark ↔ GHS Light based on OS Appearance setting.
 
 ### Color Tokens (GHS Dark reference)
 
@@ -744,7 +743,7 @@ NOTES.md Post-Phase-7 Bug Fix Sessions for full details.
 
 | ID | Feature | Notes |
 |---|---|---|
-| BL-01 | AI Assist panel (right slot) | In-editor AI suggestions, rewrite, summarize |
+| BL-01 | AI Assist panel (right slot) | Claude-powered writing assistant in the right panel slot. User types a prompt (e.g. "summarize this document", "rewrite this paragraph more concisely", "suggest a title"); the current document or selected section is sent as context. Response streams into the panel. **Implementation Path A (primary):** Anthropic API (`api.anthropic.com/v1/messages`) with user-supplied API key stored in Settings. Requires separate Anthropic account at console.anthropic.com — not included in Claude Pro/Max subscriptions. Settings panel needs: API key field, Test Connection button, link to console.anthropic.com. **Implementation Path B (experimental, future):** Shell out to Claude Code CLI (`claude` subprocess via `Process.Start()`) if installed on user's machine — passes document content and prompt, captures output, applies back to editor. Fragile, not suitable for general distribution, but viable for power users who have CC installed. |
 | BL-02 | Typewriter + Focus Mode | Active line centered, prose fades to 20% opacity |
 | BL-03 | Dual monitor detached preview | Preview as a separate detachable window |
 | BL-04 | Tab-based multi-file editing | Multiple open documents in tab bar |
@@ -761,6 +760,7 @@ NOTES.md Post-Phase-7 Bug Fix Sessions for full details.
 | BL-15 | Formatting toolbar | Add an icon-based formatting toolbar (matching the GHS Markdown WPF app style) below the main toolbar. Icons: New, Open, Save, Bold, Italic, Strikethrough, Code, H1–H4, unordered list, ordered list, table, HR, link, image, Export, Print. Show/hide toggle button in the main toolbar. State persists to AppSettings (ShowFormattingToolbar boolean, default true). Keyboard shortcut to toggle: Ctrl+Shift+B. |
 | BL-16 | Preview selection → editor formatting | When text is selected in the preview pane and a formatting shortcut (Ctrl+B, Ctrl+I, etc.) is pressed, sync the editor cursor to that selection's source line first, then apply the formatting. Requires JS window.getSelection() to identify the source block, SourceMappingService to find the editor range, then wrap that range with the formatting markers. |
 | BL-17 | Preview WYSIWYG editing (vision item) | Allow direct text editing in the preview pane with changes reflected in the Markdown source in real time. Extends Phase 2c inline-edit overlay toward a full bidirectional editing experience. Clicking any text in the preview enters edit mode for that block; typing updates the Markdown source live. This is a flagship differentiator — no mainstream Markdown editor offers true WYSIWYG with live source sync. Research phase required before implementation. |
+| BL-18 | User Guide (Word document) | Comprehensive user guide covering all features of the GHS Markdown Editor. Written in plain English for non-technical users. Delivered as a .docx file using the existing DOCX export infrastructure (DocumentFormat.OpenXml). Structure: Introduction, Getting Started (install, first launch, opening files), Interface Overview (layout diagram, panels, toolbar, status bar), Editor (typing, shortcuts, syntax highlighting, view modes), Preview Pane (scroll sync, click-to-sync, inline edit, double-click), Document Topology & Outline (navigation, balance chart), Snippet Studio (using snippets, tab stops, creating/editing snippets), Version Timeline (auto-save, scrubber, restore), Export (all five formats, suggested filename), Focus Mode (prose dimming, typewriter scroll), Command Palette, Settings (themes, font, auto-save, shortcuts reference), File Operations (recent files, drag-and-drop, draft restore), Keyboard Shortcuts Reference (complete table). Each section includes clearly labeled image placeholders (e.g. [IMAGE: Main window in Split mode showing editor and preview]) where screenshots should be inserted by the author. Tone: friendly, clear, task-oriented. |
 
 ---
 
@@ -978,4 +978,3 @@ A phase is done when:
 *Version: 2.2*
 *Phase 1 through Phase 9 — ✅ COMPLETE. Phase 10 — not started.*
 *Last updated: Phase 9 actuals applied. ContentDialog incompatibility documented. View mode shortcuts reassigned.*
-*Status: Phase 1 through Phase 8 — ✅ COMPLETE. Phase 9 — not started.*

@@ -16,6 +16,9 @@ public record AppSettings
     public string SnippetLibraryPath     { get; init; } = "";
     public bool   FocusMode             { get; init; } = false;
     public bool   ShowFormattingToolbar { get; init; } = true;
+    public bool   LeftPanelOpen         { get; init; } = true;
+    public string ActiveIcon            { get; init; } = "Topology";
+    public string AnthropicApiKey        { get; init; } = "";
     public List<string> RecentFiles      { get; init; } = new();
 }
 

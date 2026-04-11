@@ -117,21 +117,21 @@
                   Classes.active="{Binding IsEditMode}"
                   Command="{Binding SetViewModeEditCommand}"
                   Width="NaN" Height="26" Padding="8,0"
-                  ToolTip.Tip="Edit (Ctrl+1)">
+                  ToolTip.Tip="Edit Only (Ctrl+Shift+E)">
             <TextBlock Text="Edit" FontSize="11" />
           </Button>
           <Button Classes="icon-rail-btn"
                   Classes.active="{Binding IsSplitMode}"
                   Command="{Binding SetViewModeSplitCommand}"
                   Width="NaN" Height="26" Padding="8,0"
-                  ToolTip.Tip="Split (Ctrl+2)">
+                  ToolTip.Tip="Split (Ctrl+Shift+T)">
             <TextBlock Text="Split" FontSize="11" />
           </Button>
           <Button Classes="icon-rail-btn"
                   Classes.active="{Binding IsPreviewMode}"
                   Command="{Binding SetViewModePreviewCommand}"
                   Width="NaN" Height="26" Padding="8,0"
-                  ToolTip.Tip="Preview (Ctrl+3)">
+                  ToolTip.Tip="Preview Only (Ctrl+Shift+W)">
             <TextBlock Text="Preview" FontSize="11" />
           </Button>
           <Border Width="1" Height="16" Background="{DynamicResource border}" Margin="6,0" />
@@ -323,7 +323,7 @@
       <Grid ColumnDefinitions="*,Auto,Auto">
         <TextBlock Grid.Column="0"
                    x:Name="StatusText"
-                   Text="Ln 1 · Col 1 · 0 words"
+                   Text="{Binding StatusBarText}"
                    VerticalAlignment="Center"
                    Margin="10,0,0,0"
                    FontSize="11"
