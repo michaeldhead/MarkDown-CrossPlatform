@@ -7,12 +7,15 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // WebView2 user data folder — must be writable; Program Files is not.
+        // Use unique WebView2 data folder based on exe location hash
+        // so installed and dev builds never conflict
+        var baseDir = AppContext.BaseDirectory;
+        var dirHash = Math.Abs(baseDir.GetHashCode()).ToString("X8");
         var webViewDataFolder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "GHSMarkdownEditor",
-            "WebView2");
-        Directory.CreateDirectory(webViewDataFolder);
+            $"WebView2_{dirHash}");
+        try { Directory.CreateDirectory(webViewDataFolder); } catch { }
         Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", webViewDataFolder);
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

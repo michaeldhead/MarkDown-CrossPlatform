@@ -553,31 +553,39 @@ public partial class MainWindow : Window
         _webView = this.FindControl<Avalonia.Controls.NativeWebView>("PreviewWebView");
         if (_webView is null) return;
 
-        _webView.WebMessageReceived += OnWebViewMessage;
-
-        _webView.NavigationCompleted += OnNavigationCompleted;
-
-        _webView.AdapterCreated += (_, _) =>
+        try
         {
-            _webViewReady = true;
-            if (_previewVm is not null)
-                NavigateWebView(_previewVm.PreviewHtml);
-        };
+            _webView.WebMessageReceived += OnWebViewMessage;
 
-        _mainVm?.SetPrintAction(() =>
-        {
-            if (_webViewReady && _webView is not null)
-                _ = _webView.InvokeScript("window.print()");
-        });
+            _webView.NavigationCompleted += OnNavigationCompleted;
 
-        _mainVm?.SetFocusModeAction(active =>
+            _webView.AdapterCreated += (_, _) =>
+            {
+                _webViewReady = true;
+                if (_previewVm is not null)
+                    NavigateWebView(_previewVm.PreviewHtml);
+            };
+
+            _mainVm?.SetPrintAction(() =>
+            {
+                if (_webViewReady && _webView is not null)
+                    _ = _webView.InvokeScript("window.print()");
+            });
+
+            _mainVm?.SetFocusModeAction(active =>
+            {
+                ApplyFocusModeStyles(active);
+                if (!active && _editor is not null && _defaultCaretBorderDistance >= 0)
+                    SetCaretBorderDistance(_editor, _defaultCaretBorderDistance);
+            });
+            if (_mainVm?.IsFocusModeActive == true)
+                ApplyFocusModeStyles(true);
+        }
+        catch (Exception ex)
         {
-            ApplyFocusModeStyles(active);
-            if (!active && _editor is not null && _defaultCaretBorderDistance >= 0)
-                SetCaretBorderDistance(_editor, _defaultCaretBorderDistance);
-        });
-        if (_mainVm?.IsFocusModeActive == true)
-            ApplyFocusModeStyles(true);
+            System.Diagnostics.Debug.WriteLine($"WebView init failed: {ex.Message}");
+            // App continues without preview — editor still functional
+        }
     }
 
     // ─── Focus Mode — prose dimming in preview ───────────────────────────────
