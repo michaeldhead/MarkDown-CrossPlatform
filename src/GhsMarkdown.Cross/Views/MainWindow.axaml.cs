@@ -20,7 +20,7 @@ namespace GhsMarkdown.Cross.Views;
 public partial class MainWindow : Window
 {
     // ─── Controls ─────────────────────────────────────────────────────────────
-    private TextEditor?                          _editor;
+    private CenteringTextEditor?                  _editor;
     private Avalonia.Controls.NativeWebView?     _webView;
     private Grid?                                _centerGrid;
     private Border?                              _gutterBorder;
@@ -43,9 +43,6 @@ public partial class MainWindow : Window
     // ─── Active block highlight ───────────────────────────────────────────────
     private string? _lastActiveSelector;
     private CancellationTokenSource? _highlightCts;
-
-    // ─── Typewriter scroll (Focus Mode) ─────────────────────────────────────
-    private double _defaultCaretBorderDistance = -1;
 
     // ─── Gutter drag ──────────────────────────────────────────────────────────
     private bool   _isDraggingGutter;
@@ -302,7 +299,7 @@ public partial class MainWindow : Window
 
     private void InitializeEditor()
     {
-        _editor = this.FindControl<TextEditor>("MarkdownEditor");
+        _editor = this.FindControl<CenteringTextEditor>("MarkdownEditor");
         if (_editor is null) return;
 
         // Syntax highlighting disabled — AvaloniaEdit 12 xshd limitations.
@@ -369,28 +366,6 @@ public partial class MainWindow : Window
             // Feed caret line to EditorViewModel for TopologyViewModel subscription
             if (_editorVm is not null)
                 _editorVm.CaretLine = line;
-
-            // Typewriter scrolling — disable auto-scroll, center ourselves
-            if (_mainVm?.IsFocusModeActive == true && _editor is not null)
-            {
-                SetCaretBorderDistance(_editor, 9999);
-
-                Dispatcher.UIThread.Post(() =>
-                {
-                    try
-                    {
-                        var lineNum = _editor.TextArea.Caret.Line;
-                        var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
-                        var editorHeight = _editor.Bounds.Height;
-                        if (editorHeight <= 0 || lineHeight <= 0) return;
-
-                        var lineTop = (lineNum - 1) * lineHeight;
-                        var targetScroll = lineTop - (editorHeight / 2.0) + (lineHeight / 2.0);
-                        _editor.ScrollToVerticalOffset(Math.Max(0, targetScroll));
-                    }
-                    catch { }
-                }, DispatcherPriority.Normal);
-            }
         };
     }
 
@@ -583,11 +558,15 @@ public partial class MainWindow : Window
             _mainVm?.SetFocusModeAction(active =>
             {
                 ApplyFocusModeStyles(active);
-                if (!active && _editor is not null && _defaultCaretBorderDistance >= 0)
-                    SetCaretBorderDistance(_editor, _defaultCaretBorderDistance);
+                if (_editor is not null)
+                    _editor.TypewriterMode = active;
             });
             if (_mainVm?.IsFocusModeActive == true)
+            {
                 ApplyFocusModeStyles(true);
+                if (_editor is not null)
+                    _editor.TypewriterMode = true;
+            }
         }
         catch (Exception ex)
         {
@@ -627,24 +606,6 @@ public partial class MainWindow : Window
                 })();
             """);
         }
-    }
-
-    // ─── Caret border distance (internal in AvaloniaEdit 12) ───────────────
-
-    private static readonly System.Reflection.PropertyInfo? _caretBorderProp =
-        typeof(AvaloniaEdit.Editing.Caret).GetProperty(
-            "MinimumDistanceToViewBorder",
-            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-
-    private void SetCaretBorderDistance(TextEditor editor, double value)
-    {
-        if (_caretBorderProp is null) return;
-        if (_defaultCaretBorderDistance < 0)
-        {
-            var current = _caretBorderProp.GetValue(editor.TextArea.Caret);
-            if (current is double d) _defaultCaretBorderDistance = d;
-        }
-        _caretBorderProp.SetValue(editor.TextArea.Caret, value);
     }
 
     private void NavigateWebView(string html)
@@ -729,6 +690,40 @@ public partial class MainWindow : Window
                   }));
                 } catch(ex) {}
               });
+
+              // 4. Forward keyboard shortcuts to host (WebView captures OS-level input)
+              document.addEventListener('keydown', function(e) {
+                var ctrl = e.ctrlKey, shift = e.shiftKey, key = e.key;
+                function send(id) {
+                  e.preventDefault(); e.stopPropagation();
+                  try { window.chrome.webview.postMessage(
+                    JSON.stringify({type:'shortcut',commandId:id})); } catch(ex) {}
+                }
+                if (ctrl && !shift) {
+                  if (key==='n'||key==='N') return send('file.new');
+                  if (key==='o'||key==='O') return send('file.open');
+                  if (key==='s'||key==='S') return send('file.save');
+                  if (key==='b'||key==='B') return send('editor.bold');
+                  if (key==='i'||key==='I') return send('editor.italic');
+                  if (key==='k'||key==='K') return send('editor.link');
+                  if (key==='p'||key==='P') return send('palette.open');
+                  if (key==='1') return send('editor.h1');
+                  if (key==='2') return send('editor.h2');
+                  if (key==='3') return send('editor.h3');
+                  if (key==='4') return send('editor.h4');
+                  if (key==='5') return send('editor.h5');
+                  if (key==='6') return send('editor.h6');
+                }
+                if (ctrl && shift) {
+                  if (key==='S'||key==='s') return send('file.saveAs');
+                  if (key==='E'||key==='e') return send('view.editOnly');
+                  if (key==='T'||key==='t') return send('view.split');
+                  if (key==='W'||key==='w') return send('view.previewOnly');
+                  if (key==='H'||key==='h') return send('editor.hr');
+                  if (key==='F'||key==='f') return send('view.focusMode');
+                  if (key==='P'||key==='p') return send('file.print');
+                }
+              });
             })();
             """;
 
@@ -755,6 +750,22 @@ public partial class MainWindow : Window
                     break;
                 case "inline-edit":
                     HandleInlineEdit(msg.SourceLine, msg.SourceEndLine, msg.Tag);
+                    break;
+                case "shortcut":
+                    var cmdId = msg.CommandId;
+                    Dispatcher.UIThread.Post(() =>
+                    {
+                        if (cmdId is null) return;
+
+                        // Editor formatting commands: focus editor first
+                        if (cmdId.StartsWith("editor."))
+                            _editor?.Focus();
+
+                        if (cmdId == "palette.open")
+                            _mainVm?.CommandPalette.Open();
+                        else
+                            _commandRegistry?.Execute(cmdId);
+                    });
                     break;
             }
         }
@@ -1271,6 +1282,7 @@ public partial class MainWindow : Window
 
     private record WebMessage(
         [property: JsonPropertyName("type")]          string?  Type,
+        [property: JsonPropertyName("commandId")]     string?  CommandId,
         [property: JsonPropertyName("sourceLine")]    int      SourceLine,
         [property: JsonPropertyName("sourceEndLine")] int      SourceEndLine,
         [property: JsonPropertyName("tag")]           string?  Tag,
