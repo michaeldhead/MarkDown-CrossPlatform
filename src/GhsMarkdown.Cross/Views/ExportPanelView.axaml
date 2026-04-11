@@ -90,9 +90,8 @@
       </StackPanel>
     </Border>
 
-    <!-- ROW 1 COL 1: NativeWebView — isolated column, no shared space -->
-    <NativeWebView Grid.Row="1" Grid.Column="1"
-                   x:Name="ExportPreviewWebView" />
+    <!-- ROW 1 COL 1: WebView placeholder — created lazily on panel open -->
+    <Grid Grid.Row="1" Grid.Column="1" x:Name="ExportWebViewHost" />
 
     <!-- ROW 2: Export button — spans both columns -->
     <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
