@@ -131,6 +131,9 @@ public class ExportService
         mainPart.Document = new Document();
         var body = mainPart.Document.AppendChild(new Body());
 
+        // Add built-in heading styles so Word/LibreOffice recognize Heading1–6
+        AddBuiltInStyles(mainPart);
+
         foreach (var block in doc)
         {
             WriteBlock(body, block);
@@ -260,5 +263,50 @@ public class ExportService
                     break;
             }
         }
+    }
+
+    private static void AddBuiltInStyles(MainDocumentPart mainPart)
+    {
+        var stylesPart = mainPart.AddNewPart<StyleDefinitionsPart>();
+        var styles = new Styles();
+
+        for (int level = 1; level <= 6; level++)
+        {
+            var fontSize = level switch
+            {
+                1 => 48, // 24pt
+                2 => 36, // 18pt
+                3 => 28, // 14pt
+                4 => 24, // 12pt
+                5 => 22, // 11pt
+                _ => 20  // 10pt
+            };
+
+            var style = new Style
+            {
+                Type = StyleValues.Paragraph,
+                StyleId = $"Heading{level}",
+                CustomStyle = false
+            };
+            style.Append(new StyleName { Val = $"heading {level}" });
+            style.Append(new BasedOn { Val = "Normal" });
+            style.Append(new NextParagraphStyle { Val = "Normal" });
+
+            var ppr = new StyleParagraphProperties(
+                new SpacingBetweenLines { Before = "240", After = "60" });
+            style.Append(ppr);
+
+            var rpr = new StyleRunProperties(
+                new Bold(),
+                new FontSize { Val = fontSize.ToString() });
+            if (level <= 2)
+                rpr.Append(new Color { Val = "2F5496" });
+            style.Append(rpr);
+
+            styles.Append(style);
+        }
+
+        stylesPart.Styles = styles;
+        stylesPart.Styles.Save();
     }
 }

@@ -232,11 +232,14 @@ public partial class MainWindow : Window
         var exportPanelVm = App.Services.GetService(typeof(ExportPanelViewModel)) as ExportPanelViewModel;
         if (exportPanelVm is not null)
         {
+            var fileSvcRef = App.Services.GetService(typeof(FileService)) as FileService;
+            var editorVmRef2 = _editorVm;
             exportPanelVm.ShowSaveDialogFunc = async format =>
             {
                 var dlg = new Avalonia.Platform.Storage.FilePickerSaveOptions
                 {
                     Title = "Export",
+                    SuggestedFileName = GetSuggestedExportName(fileSvcRef, editorVmRef2),
                     DefaultExtension = format switch
                     {
                         ExportFormat.PdfStyled => "pdf",
@@ -1116,6 +1119,31 @@ public partial class MainWindow : Window
             }
             _ = _webView.InvokeScript(js);
         }
+    }
+
+    // ─── Export suggested filename ────────────────────────────────────────────
+
+    private static string GetSuggestedExportName(FileService? fileService, EditorViewModel? editorVm)
+    {
+        var currentPath = fileService?.CurrentFilePath;
+        if (!string.IsNullOrEmpty(currentPath))
+            return Path.GetFileNameWithoutExtension(currentPath);
+
+        var text = editorVm?.DocumentText ?? "";
+        foreach (var line in text.Split('\n'))
+        {
+            var trimmed = line.TrimStart();
+            if (trimmed.StartsWith("# "))
+            {
+                var heading = trimmed.Substring(2).Trim();
+                foreach (var c in Path.GetInvalidFileNameChars())
+                    heading = heading.Replace(c.ToString(), "");
+                if (!string.IsNullOrEmpty(heading))
+                    return heading;
+            }
+        }
+
+        return "export";
     }
 
     // ─── Center grid layout ───────────────────────────────────────────────────
