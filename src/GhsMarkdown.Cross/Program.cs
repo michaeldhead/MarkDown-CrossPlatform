@@ -7,13 +7,18 @@ internal class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Main preview WebView gets its own subfolder
-        var baseFolder = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "GHSMarkdownEditor");
-        var mainWebViewFolder = Path.Combine(baseFolder, "WebView2Main");
-        try { Directory.CreateDirectory(mainWebViewFolder); } catch { }
-        Environment.SetEnvironmentVariable("WEBVIEW2_USER_DATA_FOLDER", mainWebViewFolder);
+        // Clean up stale WebView2 folders from previous sessions
+        try
+        {
+            var baseFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "GHSMarkdownEditor");
+            foreach (var dir in Directory.GetDirectories(baseFolder, "WebView2*"))
+            {
+                try { Directory.Delete(dir, recursive: true); } catch { }
+            }
+        }
+        catch { }
 
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
