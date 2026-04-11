@@ -15,6 +15,7 @@ public record AppSettings
     public int    AutoSaveIntervalSeconds { get; init; } = 60;
     public string SnippetLibraryPath     { get; init; } = "";
     public bool   FocusMode             { get; init; } = false;
+    public bool   ShowFormattingToolbar { get; init; } = true;
     public List<string> RecentFiles      { get; init; } = new();
 }
 
