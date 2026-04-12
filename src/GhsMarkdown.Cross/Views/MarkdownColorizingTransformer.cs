@@ -7,6 +7,8 @@ namespace GhsMarkdown.Cross.Views;
 
 public class MarkdownColorizingTransformer : DocumentColorizingTransformer
 {
+    private readonly bool _isLightTheme;
+
     private static readonly SolidColorBrush[] HeadingBrushes =
     {
         new(Color.Parse("#4A9EFF")), // H1
@@ -17,12 +19,18 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
         new(Color.Parse("#555555")), // H6
     };
 
-    private static readonly SolidColorBrush CodeBrush   = new(Color.Parse("#C792EA"));
-    private static readonly SolidColorBrush ItalicBrush = new(Color.Parse("#D0D0D0"));
-    private static readonly SolidColorBrush LinkBrush   = new(Color.Parse("#4A9EFF"));
-    private static readonly SolidColorBrush QuoteBrush  = new(Color.Parse("#888888"));
-    private static readonly SolidColorBrush HRBrush     = new(Color.Parse("#444444"));
-    private static readonly SolidColorBrush BoldBrush   = new(Color.Parse("#E8E8E8"));
+    private static readonly SolidColorBrush CodeBrush        = new(Color.Parse("#C792EA"));
+    private static readonly SolidColorBrush ItalicBrushDark  = new(Color.Parse("#D0D0D0"));
+    private static readonly SolidColorBrush ItalicBrushLight = new(Color.Parse("#555566"));
+    private static readonly SolidColorBrush LinkBrush        = new(Color.Parse("#4A9EFF"));
+    private static readonly SolidColorBrush QuoteBrush       = new(Color.Parse("#888888"));
+    private static readonly SolidColorBrush HRBrush          = new(Color.Parse("#444444"));
+    private static readonly SolidColorBrush BoldBrush        = new(Color.Parse("#E8E8E8"));
+
+    public MarkdownColorizingTransformer(bool isLightTheme = false)
+    {
+        _isLightTheme = isLightTheme;
+    }
 
     protected override void ColorizeLine(DocumentLine line)
     {
@@ -87,10 +95,11 @@ public class MarkdownColorizingTransformer : DocumentColorizingTransformer
             });
 
         // ── Inline: italic ──────────────────────────────────────────
+        var italicBrush = _isLightTheme ? ItalicBrushLight : ItalicBrushDark;
         foreach (Match m in Regex.Matches(text, @"\*[^*\n]+\*|_[^_\n]+_"))
             Colorize(line, m, el =>
             {
-                el.TextRunProperties.SetForegroundBrush(ItalicBrush);
+                el.TextRunProperties.SetForegroundBrush(italicBrush);
                 el.TextRunProperties.SetTypeface(new Typeface(
                     el.TextRunProperties.Typeface.FontFamily,
                     FontStyle.Italic, FontWeight.Normal));

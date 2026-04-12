@@ -1,8 +1,7 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-  <!-- GHS Dark Theme — color tokens as SolidColorBrush resources -->
-
+  <!-- GHS Custom Theme — values injected at runtime by ThemeService -->
   <SolidColorBrush x:Key="bg-shell"       Color="#1E1E1E" />
   <SolidColorBrush x:Key="bg-panel"       Color="#252526" />
   <SolidColorBrush x:Key="bg-toolbar"     Color="#2D2D2D" />
@@ -26,11 +25,9 @@
   <SolidColorBrush x:Key="active-block"   Color="#0D1F35" />
   <SolidColorBrush x:Key="active-border"  Color="#2A4A6A" />
 
-  <!-- Raw color values for opacity variants -->
   <Color x:Key="bg-panel-color">#252526</Color>
   <Color x:Key="accent-color"  >#4A9EFF</Color>
 
-  <!-- Theme name string for status bar -->
-  <x:String x:Key="ThemeName">GHS Dark</x:String>
+  <x:String x:Key="ThemeName">GHS Custom</x:String>
 
 </ResourceDictionary>

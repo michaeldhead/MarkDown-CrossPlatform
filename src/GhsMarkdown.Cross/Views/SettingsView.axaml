@@ -35,6 +35,13 @@
                      Command="{Binding SetThemeCommand}"
                      CommandParameter="Light"
                      IsChecked="{Binding IsThemeLight, Mode=OneWay}" />
+        <RadioButton x:Name="RadioCustom"
+                     Content="GHS Custom"
+                     GroupName="GhsTheme"
+                     Foreground="{DynamicResource text-primary}"
+                     Command="{Binding SetThemeCommand}"
+                     CommandParameter="Custom"
+                     IsChecked="{Binding IsThemeCustom, Mode=OneWay}" />
         <RadioButton x:Name="RadioAuto"
                      Content="Auto (OS)"
                      GroupName="GhsTheme"
@@ -42,6 +49,140 @@
                      Command="{Binding SetThemeCommand}"
                      CommandParameter="Auto"
                      IsChecked="{Binding IsThemeAuto, Mode=OneWay}" />
+      </StackPanel>
+
+      <!-- Custom theme color editor -->
+      <StackPanel IsVisible="{Binding IsThemeCustom}"
+                  Margin="0,12,0,0"
+                  Spacing="6">
+
+        <TextBlock Text="CUSTOM COLORS"
+                   FontSize="10" FontWeight="Bold"
+                   Foreground="{DynamicResource text-hint}"
+                   Margin="0,0,0,4" />
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="App Background"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="bg-shell"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Panel Background"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="bg-panel"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Toolbar Background"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="bg-toolbar"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Editor Background"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="bg-editor"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Preview Background"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="bg-preview"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Accent Color"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="accent"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Border Color"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="border"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Primary Text"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="text-primary"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Secondary Text"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="text-secondary"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Hint / Icon Color"
+                     FontSize="11" Foreground="{DynamicResource text-secondary}"
+                     VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1"
+                       Tag="text-hint"
+                       ColorChanged="OnColorPickerChanged"
+                       HorizontalAlignment="Left" />
+        </Grid>
+
+        <!-- Reset buttons -->
+        <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+          <Button Command="{Binding ResetCustomThemeCommand}"
+                  Content="Reset to Dark"
+                  FontSize="11"
+                  Padding="8,4"
+                  Background="Transparent"
+                  BorderBrush="{DynamicResource border}"
+                  BorderThickness="1"
+                  CornerRadius="3"
+                  Foreground="{DynamicResource text-secondary}" />
+          <Button Command="{Binding ResetCustomThemeToLightCommand}"
+                  Content="Reset to Light"
+                  FontSize="11"
+                  Padding="8,4"
+                  Background="Transparent"
+                  BorderBrush="{DynamicResource border}"
+                  BorderThickness="1"
+                  CornerRadius="3"
+                  Foreground="{DynamicResource text-secondary}" />
+        </StackPanel>
+
       </StackPanel>
 
       <Border Background="{DynamicResource border-subtle}" Height="1" />

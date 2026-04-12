@@ -2,9 +2,10 @@
 > Living specification for the GHS Markdown Editor Avalonia app.
 > All phases must be fully verified against acceptance criteria before the next phase begins.
 > This document is the single source of truth. CC prompts are derived from it.
-> Version: 1.5 — Avalonia 12.0.0 upgrade applied post Phase 2c. Phase 2c actuals documented.
+> Version: 2.3 — BL-07 through BL-23 completed. See backlog table for full status.
 
----
+mike
+
 
 ## Project Identity
 
@@ -741,26 +742,32 @@ NOTES.md Post-Phase-7 Bug Fix Sessions for full details.
 
 ## Backlog (Post v1.0.0)
 
-| ID | Feature | Notes |
-|---|---|---|
-| BL-01 | AI Assist panel (right slot) | Claude-powered writing assistant in the right panel slot. User types a prompt (e.g. "summarize this document", "rewrite this paragraph more concisely", "suggest a title"); the current document or selected section is sent as context. Response streams into the panel. **Implementation Path A (primary):** Anthropic API (`api.anthropic.com/v1/messages`) with user-supplied API key stored in Settings. Requires separate Anthropic account at console.anthropic.com — not included in Claude Pro/Max subscriptions. Settings panel needs: API key field, Test Connection button, link to console.anthropic.com. **Implementation Path B (experimental, future):** Shell out to Claude Code CLI (`claude` subprocess via `Process.Start()`) if installed on user's machine — passes document content and prompt, captures output, applies back to editor. Fragile, not suitable for general distribution, but viable for power users who have CC installed. |
-| BL-02 | Typewriter + Focus Mode | Active line centered, prose fades to 20% opacity |
-| BL-03 | Dual monitor detached preview | Preview as a separate detachable window |
-| BL-04 | Tab-based multi-file editing | Multiple open documents in tab bar |
-| BL-05 | Jump List recent files (Windows) | Windows taskbar Jump List integration |
-| BL-06 | Print to printer | Native OS print dialog |
-| BL-07 | Git diff view (gutter) | Show unsaved changes vs last commit in editor gutter |
-| BL-08 | GHS Glass theme refinement | Full blur/depth pass once base platform is stable |
-| BL-09 | Custom theme editor | User-defined color tokens |
-| BL-10 | Web app feature parity audit | Systematic comparison against md.theheadfamily.com |
-| BL-11 | Linux support | Deferred from v1.0. AppImage distribution. File association via .desktop file (GNOME/KDE). Re-evaluate for v1.1. |
-| BL-12 | Per-theme editor syntax colors | AvaloniaEdit .xshd uses hardcoded GHS Dark hex values. Post-v1.0: load different .xshd per active theme so editor syntax colors match GHS Ink / GHS Glass. |
-| BL-13 | Tab-based multi-file editing | Multiple .md files open simultaneously with a tab bar above the editor. Each tab maintains independent editor state, cursor position, scroll position, draft sidecar, and snapshot history. Modeled on the tab system implemented in GHS Markdown WPF v1.0.1. |
-| BL-14 | Security: upgrade System.IO.Packaging | Transitive dependency of DocumentFormat.OpenXml 3.1.0 reports a known high severity vulnerability in version 8.0.0. Upgrade DocumentFormat.OpenXml to a newer version that pulls in a patched System.IO.Packaging, or add a direct PackageReference to a safe version. Verify DOCX export still works after upgrade. |
-| BL-15 | Formatting toolbar | Add an icon-based formatting toolbar (matching the GHS Markdown WPF app style) below the main toolbar. Icons: New, Open, Save, Bold, Italic, Strikethrough, Code, H1–H4, unordered list, ordered list, table, HR, link, image, Export, Print. Show/hide toggle button in the main toolbar. State persists to AppSettings (ShowFormattingToolbar boolean, default true). Keyboard shortcut to toggle: Ctrl+Shift+B. |
-| BL-16 | Preview selection → editor formatting | When text is selected in the preview pane and a formatting shortcut (Ctrl+B, Ctrl+I, etc.) is pressed, sync the editor cursor to that selection's source line first, then apply the formatting. Requires JS window.getSelection() to identify the source block, SourceMappingService to find the editor range, then wrap that range with the formatting markers. |
-| BL-17 | Preview WYSIWYG editing (vision item) | Allow direct text editing in the preview pane with changes reflected in the Markdown source in real time. Extends Phase 2c inline-edit overlay toward a full bidirectional editing experience. Clicking any text in the preview enters edit mode for that block; typing updates the Markdown source live. This is a flagship differentiator — no mainstream Markdown editor offers true WYSIWYG with live source sync. Research phase required before implementation. |
-| BL-18 | User Guide (Word document) | Comprehensive user guide covering all features of the GHS Markdown Editor. Written in plain English for non-technical users. Delivered as a .docx file using the existing DOCX export infrastructure (DocumentFormat.OpenXml). Structure: Introduction, Getting Started (install, first launch, opening files), Interface Overview (layout diagram, panels, toolbar, status bar), Editor (typing, shortcuts, syntax highlighting, view modes), Preview Pane (scroll sync, click-to-sync, inline edit, double-click), Document Topology & Outline (navigation, balance chart), Snippet Studio (using snippets, tab stops, creating/editing snippets), Version Timeline (auto-save, scrubber, restore), Export (all five formats, suggested filename), Focus Mode (prose dimming, typewriter scroll), Command Palette, Settings (themes, font, auto-save, shortcuts reference), File Operations (recent files, drag-and-drop, draft restore), Keyboard Shortcuts Reference (complete table). Each section includes clearly labeled image placeholders (e.g. [IMAGE: Main window in Split mode showing editor and preview]) where screenshots should be inserted by the author. Tone: friendly, clear, task-oriented. |
+| ID | Feature | Notes | Status |
+|---|---|---|---|
+| BL-01 | AI Assist panel (right slot) | Claude-powered writing assistant in the right panel slot. User types a prompt (e.g. "summarize this document", "rewrite this paragraph more concisely", "suggest a title"); the current document or selected section is sent as context. Response streams into the panel. **Implementation Path A (primary):** Anthropic API (`api.anthropic.com/v1/messages`) with user-supplied API key stored in Settings. Requires separate Anthropic account at console.anthropic.com — not included in Claude Pro/Max subscriptions. Settings panel needs: API key field, Test Connection button, link to console.anthropic.com. **Implementation Path B (experimental, future):** Shell out to Claude Code CLI (`claude` subprocess via `Process.Start()`) if installed on user's machine — passes document content and prompt, captures output, applies back to editor. Fragile, not suitable for general distribution, but viable for power users who have CC installed. | ✅ Complete |
+| BL-02 | Typewriter + Focus Mode | Active line centered, prose fades to 20% opacity | 🔄 Partial — prose dimming done, typewriter scroll deferred v1.2 |
+| BL-03 | Dual monitor detached preview | Preview as a separate detachable window | ✅ Complete |
+| BL-04 | Tab-based multi-file editing | Multiple open documents in tab bar | 📋 Planned |
+| BL-05 | Jump List recent files (Windows) | Windows taskbar Jump List integration | 🔄 Partial — requires Inno Setup installer |
+| BL-06 | Print to printer | Native OS print dialog | ✅ Complete |
+| BL-07 | Git diff view (gutter) | Show unsaved changes vs last commit in editor gutter | ✅ Complete |
+| BL-08 | GHS Glass theme refinement | Full blur/depth pass once base platform is stable | ✅ Complete |
+| BL-09 | Custom theme editor | User-defined color tokens | ✅ Complete |
+| BL-10 | Web app feature parity audit | Systematic comparison against md.theheadfamily.com | 📋 Planned |
+| BL-11 | Linux support | Deferred from v1.0. AppImage distribution. File association via .desktop file (GNOME/KDE). Re-evaluate for v1.1. | 📋 Planned — spike required |
+| BL-12 | Per-theme editor syntax colors | AvaloniaEdit .xshd uses hardcoded GHS Dark hex values. Post-v1.0: load different .xshd per active theme so editor syntax colors match GHS Ink / GHS Glass. | ✅ Complete |
+| BL-13 | Tab-based multi-file editing | Multiple .md files open simultaneously with a tab bar above the editor. Each tab maintains independent editor state, cursor position, scroll position, draft sidecar, and snapshot history. Modeled on the tab system implemented in GHS Markdown WPF v1.0.1. | 📋 Planned — see BL-04 |
+| BL-14 | Security: upgrade System.IO.Packaging | Transitive dependency of DocumentFormat.OpenXml 3.1.0 reports a known high severity vulnerability in version 8.0.0. Upgrade DocumentFormat.OpenXml to a newer version that pulls in a patched System.IO.Packaging, or add a direct PackageReference to a safe version. Verify DOCX export still works after upgrade. | ✅ Complete |
+| BL-15 | Formatting toolbar | Add an icon-based formatting toolbar (matching the GHS Markdown WPF app style) below the main toolbar. Icons: New, Open, Save, Bold, Italic, Strikethrough, Code, H1–H4, unordered list, ordered list, table, HR, link, image, Export, Print. Show/hide toggle button in the main toolbar. State persists to AppSettings (ShowFormattingToolbar boolean, default true). Keyboard shortcut to toggle: Ctrl+Shift+B. | ✅ Complete |
+| BL-16 | Preview selection → editor formatting | When text is selected in the preview pane and a formatting shortcut (Ctrl+B, Ctrl+I, etc.) is pressed, sync the editor cursor to that selection's source line first, then apply the formatting. Requires JS window.getSelection() to identify the source block, SourceMappingService to find the editor range, then wrap that range with the formatting markers. | ✅ Complete |
+| BL-17 | Preview WYSIWYG editing (vision item) | Allow direct text editing in the preview pane with changes reflected in the Markdown source in real time. Extends Phase 2c inline-edit overlay toward a full bidirectional editing experience. Clicking any text in the preview enters edit mode for that block; typing updates the Markdown source live. This is a flagship differentiator — no mainstream Markdown editor offers true WYSIWYG with live source sync. Research phase required before implementation. | ✅ Complete |
+| BL-17b | Code block language picker | {} toolbar button and right-click menu open a searchable language picker dialog (28 languages). Matches GHS Web and WPF companion apps. Double-click on a fence line opens the picker to change language. | ✅ Complete |
+| BL-18 | User Guide (Word document) | Comprehensive user guide covering all features of the GHS Markdown Editor. Written in plain English for non-technical users. Delivered as a .docx file using the existing DOCX export infrastructure (DocumentFormat.OpenXml). Structure: Introduction, Getting Started (install, first launch, opening files), Interface Overview (layout diagram, panels, toolbar, status bar), Editor (typing, shortcuts, syntax highlighting, view modes), Preview Pane (scroll sync, click-to-sync, inline edit, double-click), Document Topology & Outline (navigation, balance chart), Snippet Studio (using snippets, tab stops, creating/editing snippets), Version Timeline (auto-save, scrubber, restore), Export (all five formats, suggested filename), Focus Mode (prose dimming, typewriter scroll), Command Palette, Settings (themes, font, auto-save, shortcuts reference), File Operations (recent files, drag-and-drop, draft restore), Keyboard Shortcuts Reference (complete table). Each section includes clearly labeled image placeholders (e.g. [IMAGE: Main window in Split mode showing editor and preview]) where screenshots should be inserted by the author. Tone: friendly, clear, task-oriented. | ✅ Complete |
+| BL-19 | GHS Dark theme refinement | GHS Dark theme refinement — current Dark theme is too black/flat compared to polished editors like Visual Studio. Lighten the toolbar, icon rail, panel backgrounds, and icon foreground colors to add more visual depth and warmth. Target: toolbar/titlebar slightly lighter (#222228 range), icon rail with subtle contrast from panels, icon glyphs at higher opacity (text-hint too dark at #444444 — raise to #666666 or #707070), panel backgrounds with more distinction from the editor area. Reference: VS Code Dark+ and Visual Studio Dark as calibration targets. Both themes (Dark and Light) should be reviewed for color balance. | ✅ Complete |
+| BL-20 | Editor right-click context menu | Editor right-click context menu — adds a context menu to the editor pane with the following items: **Formatting** (Bold, Italic, Strikethrough, Inline Code, Heading 1, Heading 2, Heading 3, Insert Link, Insert Image); **Editor Toggles** (Word Wrap on/off, Show Line Numbers on/off, Highlight Current Line on/off); **Edit** (Copy, Cut, Paste, Select All); **File** (Save). The three editor toggle states (WordWrap, ShowLineNumbers, HighlightCurrentLine) are added to AppSettings and persist across restarts. Default values: WordWrap=false, ShowLineNumbers=true, HighlightCurrentLine=true. | ✅ Complete |
+| BL-21 | Light theme italic visibility | Light theme italic visibility — italic text in the editor is too light/faint in GHS Light theme. The DocumentColorizingTransformer uses #D0D0D0 for italic foreground which is near-invisible on the light (#F9F6F0) editor background. Fix: in MarkdownColorizingTransformer.cs, make italic foreground theme-aware — use a darker color (#555555 or similar) when the light theme is active, and the existing #D0D0D0 for dark theme. | ✅ Complete |
+| BL-22 | Right panel pull tab | Right panel pull tab — improve discoverability. Replace the plain 10px strip with a visible arrow indicator: show > (chevron right) when the panel is closed to suggest "expand", and < (chevron left) when open to suggest "collapse". The chevron should be centered vertically on the tab and styled with the accent color. | ✅ Complete |
+| BL-23 | Custom theme — Reset to Light Mode button | Custom theme — Reset to Light Mode button. The custom theme editor currently has one "Reset to Defaults" button which resets to GHS Dark baseline values. Add a second button "Reset to Light" that resets all 10 custom color tokens to the GHS Light theme values instead. This lets users start customizing from either the dark or light baseline. | ✅ Complete |
 
 ---
 
@@ -975,6 +982,6 @@ A phase is done when:
 
 ---
 
-*Version: 2.2*
+*Version: 2.3*
 *Phase 1 through Phase 9 — ✅ COMPLETE. Phase 10 — not started.*
-*Last updated: Phase 9 actuals applied. ContentDialog incompatibility documented. View mode shortcuts reassigned.*
+*Last updated: BL-07, BL-17, BL-17b, BL-20, BL-21, BL-22, BL-23 completed and documented.*

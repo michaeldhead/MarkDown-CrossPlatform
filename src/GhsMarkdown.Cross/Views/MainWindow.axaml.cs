@@ -55,9 +55,17 @@ public partial class MainWindow : Window
     private DateTime _lastEditorSyncTime = DateTime.MinValue;
     private const int ScrollSyncCooldownMs = 300;
 
+    // ─── Detached preview ────────────────────────────────────────────────────
+    private DetachedPreviewWindow? _detachedWindow;
+
     // ─── Word count ───────────────────────────────────────────────────────────
     private CancellationTokenSource? _wordCountCts;
     private int _lastTotalWordCount;
+
+    // ─── Git diff gutter ──────────────────────────────────────────────────────
+    private GitDiffMargin?  _gitDiffMargin;
+    private GitDiffService  _gitDiffService = new();
+    private CancellationTokenSource? _gitDiffCts;
 
     // ─── Constructor ──────────────────────────────────────────────────────────
 
@@ -74,6 +82,9 @@ public partial class MainWindow : Window
                 : DragDropEffects.None;
         });
         AddHandler(DragDrop.DropEvent, OnFileDrop);
+
+        // Close detached preview window when main window closes
+        Closing += (_, _) => _detachedWindow?.Close();
     }
 
     private async void OnFileDrop(object? sender, DragEventArgs e)
@@ -110,12 +121,29 @@ public partial class MainWindow : Window
         InitializeWebView();
         InitializeCenterGrid();
 
+        // Wire code block toolbar button
+        var codeBlockBtn = this.FindControl<Button>("CodeBlockToolbarBtn");
+        if (codeBlockBtn is not null)
+            codeBlockBtn.Click += (_, _) =>
+                CodeLanguagePickerWindow.Show(this, "Insert Code Block",
+                    lang => InsertCodeBlock(lang));
+
+        // Wire detach preview action
+        var settingsSvc = App.Services.GetService(typeof(SettingsService)) as SettingsService;
+        _mainVm?.SetDetachPreviewAction(() => ToggleDetachedPreview(settingsSvc!));
+
         // Apply editor theme colors and subscribe to theme changes
         var themeService = App.Services.GetService(typeof(ThemeService)) as ThemeService;
         if (themeService is not null && _editor is not null)
         {
             ApplyEditorTheme(themeService.CurrentThemeName);
-            themeService.ThemeChanged += (_, _) => ApplyEditorTheme(themeService.CurrentThemeName);
+            themeService.ThemeChanged += (_, _) =>
+            {
+                ApplyEditorTheme(themeService.CurrentThemeName);
+                ApplyMarkdownHighlighting();
+                if (_previewVm is not null && _webViewReady)
+                    NavigateWebView(_previewVm.PreviewHtml);
+            };
         }
 
         // Apply editor font from settings and subscribe to changes
@@ -296,6 +324,12 @@ public partial class MainWindow : Window
         {
             if (pe.PropertyName == nameof(MainWindowViewModel.CurrentViewMode))
                 UpdateCenterLayout();
+            if (pe.PropertyName == nameof(MainWindowViewModel.IsSettingsOpen)
+                && _mainVm.IsSettingsOpen)
+            {
+                var sv = this.FindControl<SettingsView>("SettingsViewControl");
+                sv?.RefreshColorPickers();
+            }
         };
     }
 
@@ -318,14 +352,36 @@ public partial class MainWindow : Window
 
         // Syntax highlighting via DocumentColorizingTransformer
         // (replaces xshd — no zero-length match restrictions)
-        _editor.TextArea.TextView.LineTransformers.Add(
-            new MarkdownColorizingTransformer());
+        ApplyMarkdownHighlighting();
 
         _editor.Options.ShowTabs                = false;
         _editor.Options.IndentationSize         = 2;
         _editor.Options.ConvertTabsToSpaces     = true;
-        _editor.Options.HighlightCurrentLine    = true;
+        _editor.Options.HighlightCurrentLine    = _mainVm?.HighlightCurrentLine ?? true;
+        _editor.ShowLineNumbers                 = _mainVm?.ShowLineNumbers      ?? true;
+        _editor.WordWrap                        = _mainVm?.WordWrap             ?? false;
         _editor.Options.AllowScrollBelowDocument = true;
+
+        // Live-apply editor toggle changes from context menu / VM
+        if (_mainVm is not null)
+        {
+            _mainVm.PropertyChanged += (_, pe) =>
+            {
+                if (_editor is null) return;
+                switch (pe.PropertyName)
+                {
+                    case nameof(MainWindowViewModel.WordWrap):
+                        _editor.WordWrap = _mainVm.WordWrap;
+                        break;
+                    case nameof(MainWindowViewModel.ShowLineNumbers):
+                        _editor.ShowLineNumbers = _mainVm.ShowLineNumbers;
+                        break;
+                    case nameof(MainWindowViewModel.HighlightCurrentLine):
+                        _editor.Options.HighlightCurrentLine = _mainVm.HighlightCurrentLine;
+                        break;
+                }
+            };
+        }
 
         // Push text changes to EditorViewModel
         _editor.Document.TextChanged += (_, _) =>
@@ -355,6 +411,19 @@ public partial class MainWindow : Window
 
         // Snippet mode: intercept Tab/Escape/Enter before AvaloniaEdit handles them
         _editor.AddHandler(KeyDownEvent, OnEditorKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+
+        // Double-click on a fence line opens the language picker
+        _editor.TextArea.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.ClickCount != 2) return;
+            var lang = GetFenceLanguage();
+            if (lang is null) return;
+            e.Handled = true;
+            Dispatcher.UIThread.Post(() =>
+                CodeLanguagePickerWindow.Show(this, "Change Language",
+                    newLang => ChangeCodeLanguage(newLang)),
+                Avalonia.Threading.DispatcherPriority.Input);
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 
         // Scroll sync — subscribe to editor scroll events
         _editor.TextArea.TextView.ScrollOffsetChanged += OnEditorScrollChanged;
@@ -387,6 +456,206 @@ public partial class MainWindow : Window
                 _editor?.TextArea.Focus();
             }, DispatcherPriority.Input);
         });
+
+        // Git diff margin
+        _gitDiffMargin = new GitDiffMargin();
+        _editor.TextArea.LeftMargins.Add(_gitDiffMargin);
+
+        // Refresh diff on file open/save
+        var fileServiceRef = App.Services.GetService(typeof(FileService)) as FileService;
+        if (fileServiceRef is not null)
+        {
+            fileServiceRef.PropertyChanged += (_, pe) =>
+            {
+                if (pe.PropertyName == nameof(FileService.CurrentFilePath))
+                    RefreshGitDiff(fileServiceRef.CurrentFilePath);
+            };
+            fileServiceRef.FileSaved += (_, _) =>
+                RefreshGitDiff(fileServiceRef.CurrentFilePath);
+        }
+
+        RefreshGitDiff(fileServiceRef?.CurrentFilePath);
+
+        AttachEditorContextMenu();
+    }
+
+    // ─── Editor context menu ─────────────────────────────────────────────────
+
+    private void AttachEditorContextMenu()
+    {
+        if (_editor is null || _mainVm is null) return;
+
+        // ── Toggle menu items (IsChecked updated on Opening) ─────────────────
+        var wordWrapItem      = new MenuItem { Header = "Word Wrap",              ToggleType = MenuItemToggleType.CheckBox };
+        var showLineNumsItem  = new MenuItem { Header = "Show Line Numbers",      ToggleType = MenuItemToggleType.CheckBox };
+        var highlightLineItem = new MenuItem { Header = "Highlight Current Line", ToggleType = MenuItemToggleType.CheckBox };
+
+        wordWrapItem.Click      += (_, _) => _mainVm.ToggleWordWrapCommand.Execute(null);
+        showLineNumsItem.Click  += (_, _) => _mainVm.ToggleShowLineNumbersCommand.Execute(null);
+        highlightLineItem.Click += (_, _) => _mainVm.ToggleHighlightCurrentLineCommand.Execute(null);
+
+        // ── Heading submenu ───────────────────────────────────────────────────
+        var headingItem = new MenuItem { Header = "Heading" };
+        headingItem.Items.Add(new MenuItem
+        {
+            Header = "H1 — Heading 1",
+            Command = _mainVm.FormatH1Command,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.D1, Avalonia.Input.KeyModifiers.Control)
+        });
+        headingItem.Items.Add(new MenuItem
+        {
+            Header = "H2 — Heading 2",
+            Command = _mainVm.FormatH2Command,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.D2, Avalonia.Input.KeyModifiers.Control)
+        });
+        headingItem.Items.Add(new MenuItem
+        {
+            Header = "H3 — Heading 3",
+            Command = _mainVm.FormatH3Command,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.D3, Avalonia.Input.KeyModifiers.Control)
+        });
+
+        // ── Cut ───────────────────────────────────────────────────────────────
+        var cutItem = new MenuItem
+        {
+            Header = "Cut",
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.X, Avalonia.Input.KeyModifiers.Control)
+        };
+        cutItem.Click += (_, _) =>
+        {
+            if (_editor is null || _editor.TextArea.Selection.IsEmpty) return;
+            var text = _editor.TextArea.Selection.GetText();
+            var seg  = _editor.TextArea.Selection.SurroundingSegment;
+            if (TopLevel.GetTopLevel(_editor)?.Clipboard is { } cb)
+                _ = Avalonia.Input.Platform.ClipboardExtensions.SetValueAsync(cb, Avalonia.Input.DataFormat.Text, text);
+            _editor.Document.Remove(seg.Offset, seg.Length);
+        };
+
+        // ── Copy ──────────────────────────────────────────────────────────────
+        var copyItem = new MenuItem
+        {
+            Header = "Copy",
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.C, Avalonia.Input.KeyModifiers.Control)
+        };
+        copyItem.Click += (_, _) =>
+        {
+            if (_editor is null || _editor.TextArea.Selection.IsEmpty) return;
+            var text = _editor.TextArea.Selection.GetText();
+            if (TopLevel.GetTopLevel(_editor)?.Clipboard is { } cb)
+                _ = Avalonia.Input.Platform.ClipboardExtensions.SetValueAsync(cb, Avalonia.Input.DataFormat.Text, text);
+        };
+
+        // ── Paste ─────────────────────────────────────────────────────────────
+        var pasteItem = new MenuItem
+        {
+            Header = "Paste",
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.V, Avalonia.Input.KeyModifiers.Control)
+        };
+        pasteItem.Click += async (_, _) =>
+        {
+            if (_editor is null) return;
+            var clipboard = TopLevel.GetTopLevel(_editor)?.Clipboard;
+            if (clipboard is null) return;
+            var text = await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(clipboard);
+            if (text is null) return;
+            if (!_editor.TextArea.Selection.IsEmpty)
+            {
+                var seg = _editor.TextArea.Selection.SurroundingSegment;
+                _editor.Document.Remove(seg.Offset, seg.Length);
+            }
+            _editor.Document.Insert(_editor.TextArea.Caret.Offset, text);
+        };
+
+        // ── Select All ────────────────────────────────────────────────────────
+        var selectAllItem = new MenuItem
+        {
+            Header = "Select All",
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.A, Avalonia.Input.KeyModifiers.Control)
+        };
+        selectAllItem.Click += (_, _) =>
+        {
+            if (_editor is null) return;
+            _editor.TextArea.Selection = AvaloniaEdit.Editing.Selection.Create(
+                _editor.TextArea, 0, _editor.Document.TextLength);
+        };
+
+        // ── Assemble menu ──────────────────────────────────────────────────────
+        var menu = new ContextMenu();
+
+        // Formatting
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Bold",
+            Command = _mainVm.FormatBoldCommand,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.B, Avalonia.Input.KeyModifiers.Control)
+        });
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Italic",
+            Command = _mainVm.FormatItalicCommand,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.I, Avalonia.Input.KeyModifiers.Control)
+        });
+        menu.Items.Add(new MenuItem { Header = "Strikethrough", Command = _mainVm.FormatStrikethroughCommand });
+        menu.Items.Add(new MenuItem { Header = "Inline Code",   Command = _mainVm.FormatCodeCommand });
+        var codeBlockItem = new MenuItem { Header = "Code Block..." };
+        codeBlockItem.Click += (_, _) =>
+            CodeLanguagePickerWindow.Show(this, "Insert Code Block",
+                lang => InsertCodeBlock(lang));
+        menu.Items.Add(codeBlockItem);
+        menu.Items.Add(new Separator());
+
+        // Headings
+        menu.Items.Add(headingItem);
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Link",
+            Command = _mainVm.FormatLinkCommand,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.K, Avalonia.Input.KeyModifiers.Control)
+        });
+        menu.Items.Add(new MenuItem { Header = "Image", Command = _mainVm.FormatImageCommand });
+        menu.Items.Add(new Separator());
+
+        // Toggles
+        menu.Items.Add(wordWrapItem);
+        menu.Items.Add(showLineNumsItem);
+        menu.Items.Add(highlightLineItem);
+        menu.Items.Add(new Separator());
+
+        // Edit
+        menu.Items.Add(cutItem);
+        menu.Items.Add(copyItem);
+        menu.Items.Add(pasteItem);
+        menu.Items.Add(selectAllItem);
+        menu.Items.Add(new Separator());
+
+        // File
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Save",
+            Command = _mainVm.SaveFileCommand,
+            InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.S, Avalonia.Input.KeyModifiers.Control)
+        });
+
+        // Change Language (visible only when caret is on a ``` fence line)
+        var changeLangItem = new MenuItem { Header = "Change Language..." };
+        changeLangItem.Click += (_, _) =>
+        {
+            CodeLanguagePickerWindow.Show(this, "Change Language",
+                lang => ChangeCodeLanguage(lang));
+        };
+        menu.Items.Add(changeLangItem);
+
+        // Update checked state each time the menu opens
+        menu.Opening += (_, _) =>
+        {
+            wordWrapItem.IsChecked      = _mainVm.WordWrap;
+            showLineNumsItem.IsChecked  = _mainVm.ShowLineNumbers;
+            highlightLineItem.IsChecked = _mainVm.HighlightCurrentLine;
+            changeLangItem.IsVisible    = GetFenceLanguage() is not null;
+        };
+
+        // Attach to the TextArea (overrides AvaloniaEdit's built-in context menu)
+        _editor.TextArea.ContextMenu = menu;
     }
 
     // ─── Editor theme colors ─────────────────────────────────────────────────
@@ -400,13 +669,40 @@ public partial class MainWindow : Window
             _editor.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#1A1A1A"));
             _editor.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#F9F6F0"));
         }
-        else
+        else if (themeName == "GHS Custom")
+        {
+            var settingsSvc = App.Services.GetService(typeof(SettingsService)) as SettingsService;
+            var colors = settingsSvc?.Load().CustomThemeColors
+                         ?? new Dictionary<string, string>();
+
+            var bg = colors.TryGetValue("bg-editor", out var bgHex) ? bgHex : "#1E1E1E";
+            var fg = colors.TryGetValue("text-primary", out var fgHex) ? fgHex : "#E8E8E8";
+
+            _editor.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(bg));
+            _editor.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(fg));
+        }
+        else // GHS Dark (default)
         {
             _editor.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#E8E8E8"));
-            _editor.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#141414"));
+            _editor.Background = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#1E1E1E"));
         }
 
         _editor.TextArea.Foreground = _editor.Foreground;
+    }
+
+    private void ApplyMarkdownHighlighting()
+    {
+        if (_editor is null) return;
+        var transformers = _editor.TextArea.TextView.LineTransformers;
+
+        var existing = transformers
+            .OfType<MarkdownColorizingTransformer>()
+            .ToList();
+        foreach (var t in existing)
+            transformers.Remove(t);
+
+        var isLight = _mainVm?.IsThemeLight == true;
+        transformers.Add(new MarkdownColorizingTransformer(isLight));
     }
 
     // ─── Editor font ──────────────────────────────────────────────────────────
@@ -486,6 +782,44 @@ public partial class MainWindow : Window
 
     // ─── Editor command registration ─────────────────────────────────────────
 
+    private void InsertCodeBlock(string language)
+    {
+        if (_editor is null) return;
+        var ta     = _editor.TextArea;
+        var line   = _editor.Document.GetLineByNumber(ta.Caret.Line);
+        var insert = $"\n```{language}\n\n```\n";
+        var offset = line.EndOffset;
+        _editor.Document.Insert(offset, insert);
+        // Position caret inside the block (after the opening fence + newline)
+        ta.Caret.Offset = offset + 1 + language.Length + 4; // \n```lang\n
+        _editor.Focus();
+        _editor.TextArea.Focus();
+    }
+
+    private string? GetFenceLanguage()
+    {
+        if (_editor is null) return null;
+        var lineNum  = _editor.TextArea.Caret.Line;
+        var line     = _editor.Document.GetLineByNumber(lineNum);
+        var lineText = _editor.Document.GetText(line.Offset, line.Length).TrimStart();
+        if (!lineText.StartsWith("```")) return null;
+        var lang = lineText.Substring(3).Trim();
+        return lang; // may be empty string for plain fences
+    }
+
+    private void ChangeCodeLanguage(string newLanguage)
+    {
+        if (_editor is null) return;
+        var lineNum  = _editor.TextArea.Caret.Line;
+        var line     = _editor.Document.GetLineByNumber(lineNum);
+        var lineText = _editor.Document.GetText(line.Offset, line.Length);
+        if (!lineText.TrimStart().StartsWith("```")) return;
+        // Replace entire line with new fence + language
+        var indent = lineText.Length - lineText.TrimStart().Length;
+        var newLine = lineText.Substring(0, indent) + "```" + newLanguage;
+        _editor.Document.Replace(line.Offset, line.Length, newLine);
+    }
+
     private void RegisterEditorCommands()
     {
         var registry = App.Services.GetService(typeof(CommandRegistry)) as CommandRegistry;
@@ -542,7 +876,7 @@ public partial class MainWindow : Window
 
         // New commands for formatting toolbar
         registry.Register(new CommandDescriptor("editor.strikethrough", "Strikethrough",
-            "Editor", () => WrapSelection("~~", "~~"), ""));
+            "Editor", () => WrapSelection("~~", "~~"), "Ctrl+Shift+X"));
         registry.Register(new CommandDescriptor("editor.unorderedList", "Unordered List",
             "Editor", () =>
             {
@@ -551,7 +885,7 @@ public partial class MainWindow : Window
                 var text = _editor.Document.GetText(line.Offset, line.Length);
                 if (!text.StartsWith("- "))
                     _editor.Document.Insert(line.Offset, "- ");
-            }, ""));
+            }, "Ctrl+Shift+U"));
         registry.Register(new CommandDescriptor("editor.orderedList", "Ordered List",
             "Editor", () =>
             {
@@ -560,7 +894,7 @@ public partial class MainWindow : Window
                 var text = _editor.Document.GetText(line.Offset, line.Length);
                 if (!text.StartsWith("1. "))
                     _editor.Document.Insert(line.Offset, "1. ");
-            }, ""));
+            }, "Ctrl+Shift+O"));
         registry.Register(new CommandDescriptor("editor.table", "Insert Table",
             "Editor", () =>
             {
@@ -568,9 +902,15 @@ public partial class MainWindow : Window
                 var line = _editor.Document.GetLineByNumber(ta.Caret.Line);
                 _editor.Document.Insert(line.EndOffset,
                     "\n| Column 1 | Column 2 | Column 3 |\n| --- | --- | --- |\n| Cell | Cell | Cell |\n");
-            }, ""));
+            }, "Ctrl+Shift+G"));
         registry.Register(new CommandDescriptor("editor.image", "Insert Image",
-            "Editor", () => WrapSelection("![", "](image-url)"), ""));
+            "Editor", () => WrapSelection("![", "](image-url)"), "Ctrl+Shift+I"));
+        registry.Register(new CommandDescriptor("editor.codeBlock", "Insert Code Block",
+            "Editor", () =>
+            {
+                CodeLanguagePickerWindow.Show(this, "Insert Code Block",
+                    lang => InsertCodeBlock(lang));
+            }));
     }
 
     // ─── NativeWebView ────────────────────────────────────────────────────────
@@ -658,6 +998,53 @@ public partial class MainWindow : Window
                 })();
             """);
         }
+    }
+
+    // ─── Detached Preview ─────────────────────────────────────────────────────
+
+    private void ToggleDetachedPreview(SettingsService settingsService)
+    {
+        if (_detachedWindow is not null)
+        {
+            // Already detached — bring to front
+            _detachedWindow.Activate();
+            return;
+        }
+
+        // Load saved position
+        var s = settingsService.Load();
+
+        // Switch main window to Edit-only mode
+        if (_mainVm is not null)
+        {
+            _mainVm.CurrentViewMode = ViewMode.Edit;
+            _mainVm.IsPreviewDetached = true;
+        }
+
+        // Create and show detached window
+        _detachedWindow = new DetachedPreviewWindow(
+            _previewVm!,
+            settingsService,
+            s.DetachedPreviewX,
+            s.DetachedPreviewY,
+            s.DetachedPreviewWidth,
+            s.DetachedPreviewHeight);
+
+        _detachedWindow.DetachedWindowClosed += (_, _) =>
+        {
+            _detachedWindow = null;
+            // Return to Split mode when detached window closes
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (_mainVm is not null)
+                {
+                    _mainVm.IsPreviewDetached = false;
+                    _mainVm.CurrentViewMode = ViewMode.Split;
+                }
+            });
+        };
+
+        _detachedWindow.Show();
     }
 
     private void NavigateWebView(string html)
@@ -767,6 +1154,7 @@ public partial class MainWindow : Window
                   if (key==='i'||key==='I') return send('editor.italic');
                   if (key==='k'||key==='K') return send('editor.link');
                   if (key==='p'||key==='P') return send('palette.open');
+                  if (key==='d'||key==='D') return send('view.detachPreview');
                   if (key==='1') return send('editor.h1');
                   if (key==='2') return send('editor.h2');
                   if (key==='3') return send('editor.h3');
@@ -783,6 +1171,11 @@ public partial class MainWindow : Window
                   if (key==='F'||key==='f') return send('view.focusMode');
                   if (key==='B'||key==='b') return send('view.formattingToolbar');
                   if (key==='P'||key==='p') return send('file.print');
+                  if (key==='X'||key==='x') return send('editor.strikethrough');
+                  if (key==='U'||key==='u') return send('editor.unorderedList');
+                  if (key==='O'||key==='o') return send('editor.orderedList');
+                  if (key==='G'||key==='g') return send('editor.table');
+                  if (key==='I'||key==='i') return send('editor.image');
                 }
               });
             })();
@@ -1033,14 +1426,20 @@ public partial class MainWindow : Window
 
     private void OnEditorScrollChanged(object? sender, EventArgs e)
     {
-        if (_isSyncingScroll || _mainVm?.CurrentViewMode != ViewMode.Split) return;
-        if (!_webViewReady || _webView is null || _editor is null) return;
+        if (_isSyncingScroll || _editor is null) return;
         if (_previewVm?.IsTimelinePreviewActive == true) return; // Suppress during timeline
+
+        var fraction = ComputeEditorScrollFraction();
+
+        // Also sync to detached preview window if open
+        _detachedWindow?.ScrollToFraction(fraction);
+
+        if (_mainVm?.CurrentViewMode != ViewMode.Split) return;
+        if (!_webViewReady || _webView is null) return;
 
         _isSyncingScroll = true;
         try
         {
-            var fraction = ComputeEditorScrollFraction();
             _lastProgrammaticScrollFraction = fraction;
             _lastEditorSyncTime = DateTime.UtcNow;
 
@@ -1072,6 +1471,36 @@ public partial class MainWindow : Window
         var editorFraction = ComputeEditorScrollFraction();
         var diff = Math.Abs(editorFraction - _lastProgrammaticScrollFraction);
         _mainVm.GutterSyncState = diff < 0.02 ? GutterSyncState.Synced : GutterSyncState.Drifted;
+    }
+
+    // ─── Git diff gutter ────────────────────────────────────────────────────────
+
+    private void RefreshGitDiff(string? filePath)
+    {
+        _gitDiffCts?.Cancel();
+        _gitDiffCts = new CancellationTokenSource();
+        var token = _gitDiffCts.Token;
+
+        if (string.IsNullOrEmpty(filePath))
+        {
+            _gitDiffMargin?.UpdateDiff(new Dictionary<int, GitLineState>());
+            return;
+        }
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var diff = await _gitDiffService.GetDiffAsync(filePath);
+                if (token.IsCancellationRequested) return;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    _gitDiffMargin?.UpdateDiff(diff);
+                    _gitDiffMargin?.InvalidateMeasure();
+                });
+            }
+            catch { }
+        }, token);
     }
 
     // ─── Word count ───────────────────────────────────────────────────────────
