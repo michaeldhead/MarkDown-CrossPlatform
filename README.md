@@ -46,7 +46,13 @@ Part of the GHS Markdown Editor ecosystem.
 | Inline Code | Ctrl+` |
 | Insert Link | Ctrl+K |
 | Heading 1–6 | Ctrl+1–6 |
+| Strikethrough | Ctrl+Shift+X |
+| Unordered List | Ctrl+Shift+U |
+| Ordered List | Ctrl+Shift+O |
+| Insert Table | Ctrl+Shift+G |
+| Insert Image | Ctrl+Shift+I |
 | Horizontal Rule | Ctrl+Shift+H |
+| Detach Preview | Ctrl+D |
 
 ## Tech Stack
 
@@ -77,19 +83,19 @@ Requirements: .NET 10 SDK, Visual Studio 2022 17.13+ or JetBrains Rider.
 ```bash
 git clone https://github.com/michaeldhead/MarkDown-CrossPlatform.git
 cd MarkDown-CrossPlatform
-dotnet build src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj
-dotnet run --project src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj
+dotnet build GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj
+dotnet run --project GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj
 ```
 
 ### Windows publish
 ```bash
-dotnet publish src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj \
+dotnet publish GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj \
   -r win-x64 -c Release --self-contained
 ```
 
 ### macOS publish
 ```bash
-dotnet publish src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj \
+dotnet publish GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj \
   -r osx-arm64 -c Release --self-contained
 ```
 

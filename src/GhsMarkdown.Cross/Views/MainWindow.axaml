@@ -25,6 +25,12 @@
     <KeyBinding Gesture="Ctrl+Shift+P" Command="{Binding PrintCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+F" Command="{Binding ToggleFocusModeCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+B" Command="{Binding ToggleFormattingToolbarCommand}" />
+    <KeyBinding Gesture="Ctrl+D" Command="{Binding DetachPreviewCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+X" Command="{Binding FormatStrikethroughCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+U" Command="{Binding FormatUnorderedListCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding FormatOrderedListCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+G" Command="{Binding FormatTableCommand}" />
+    <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding FormatImageCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -70,7 +76,7 @@
 
     <!-- Pull tab -->
     <Style Selector="Button.pull-tab">
-      <Setter Property="Width" Value="10" />
+      <Setter Property="Width" Value="16" />
       <Setter Property="Height" Value="44" />
       <Setter Property="Padding" Value="0" />
       <Setter Property="Background" Value="{DynamicResource accent-dim}" />
@@ -133,6 +139,13 @@
                   Width="NaN" Height="26" Padding="8,0"
                   ToolTip.Tip="Preview Only (Ctrl+Shift+W)">
             <TextBlock Text="Preview" FontSize="11" />
+          </Button>
+          <Button Classes="icon-rail-btn"
+                  Command="{Binding DetachPreviewCommand}"
+                  Width="NaN" Height="26" Padding="8,0"
+                  ToolTip.Tip="Detach Preview Window (Ctrl+D)">
+            <TextBlock Text="&#x29C9;" FontSize="13"
+                       Foreground="{DynamicResource accent}" />
           </Button>
           <Border Width="1" Height="16" Background="{DynamicResource border}" Margin="6,0" />
           <Button Classes="icon-rail-btn"
@@ -213,10 +226,10 @@
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
         <Button Classes="icon-rail-btn"
-                Command="{Binding FormatCodeCommand}"
                 Width="28" Height="28" Padding="0"
-                ToolTip.Tip="Inline Code (Ctrl+&#x60;)">
-          <TextBlock Text="&lt;/&gt;" FontSize="11" FontFamily="Consolas,monospace"
+                x:Name="CodeBlockToolbarBtn"
+                ToolTip.Tip="Insert Code Block">
+          <TextBlock Text="{}{}" FontSize="13" FontFamily="Consolas,monospace"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
         <Border Width="1" Height="18" Background="{DynamicResource border}" Margin="4,0" />
@@ -418,7 +431,8 @@
                           HorizontalContentAlignment="Stretch"
                           VerticalContentAlignment="Stretch" />
 
-          <views:SettingsView IsVisible="{Binding IsSettingsOpen}"
+          <views:SettingsView x:Name="SettingsViewControl"
+                              IsVisible="{Binding IsSettingsOpen}"
                               DataContext="{Binding}" />
         </Panel>
       </Border>
@@ -561,7 +575,23 @@
         <Button Classes="pull-tab"
                 Command="{Binding ToggleRightPanelCommand}"
                 VerticalAlignment="Center"
-                ToolTip.Tip="{Binding RightPanelSlotName}" />
+                Width="16"
+                ToolTip.Tip="{Binding RightPanelSlotName}">
+          <Panel>
+            <TextBlock Text="&#x203A;"
+                       IsVisible="{Binding IsRightPanelOpen}"
+                       FontSize="16" FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource accent}" />
+            <TextBlock Text="&#x2039;"
+                       IsVisible="{Binding !IsRightPanelOpen}"
+                       FontSize="16" FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center"
+                       Foreground="{DynamicResource accent}" />
+          </Panel>
+        </Button>
       </Border>
 
     </Grid>

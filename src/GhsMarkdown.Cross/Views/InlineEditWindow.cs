@@ -19,13 +19,13 @@ public class InlineEditWindow : Window
     /// <summary>Fires with the new Markdown text when the user commits. Not raised on cancel.</summary>
     public event EventHandler<string>? Committed;
 
-    public InlineEditWindow(string elementType, string initialText)
+    public InlineEditWindow(string elementType, string initialText, string tag = "")
     {
         Title             = string.Empty;
         WindowDecorations = Avalonia.Controls.WindowDecorations.None;
-        Width             = 480;
+        Width             = 600;
         MinHeight         = 120;
-        MaxHeight         = 400;
+        MaxHeight         = 500;
         CanResize         = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         Topmost           = true;
@@ -46,6 +46,13 @@ public class InlineEditWindow : Window
             FontFamily     = FontFamily.Parse("Consolas,Menlo,monospace"),
             FontSize       = 13
         };
+
+        // Larger editing area for tables and code blocks
+        if (tag is "table" or "tr" or "td" or "th" or "pre" or "code")
+        {
+            _textBox.MinHeight = 120;
+            _textBox.MaxHeight = 360;
+        }
 
         var label = new TextBlock
         {
@@ -131,11 +138,13 @@ public class InlineEditWindow : Window
 
     private static string FriendlyElementType(string tag) => tag switch
     {
-        "p"          => "paragraph",
+        "p"                                             => "paragraph",
         "h1" or "h2" or "h3" or "h4" or "h5" or "h6" => "heading",
-        "li"         => "list item",
-        "blockquote" => "blockquote",
-        _            => tag
+        "li"                                            => "list item",
+        "blockquote"                                    => "blockquote",
+        "pre" or "code"                                 => "code block",
+        "table" or "tr" or "td" or "th"                => "table",
+        _                                               => tag
     };
 
     /// <summary>
@@ -144,10 +153,11 @@ public class InlineEditWindow : Window
     /// </summary>
     public static bool TryOpen(Window owner, string tag, string markdown, Action<string> onCommit)
     {
-        if (tag is not ("p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" or "li" or "blockquote"))
+        if (tag is not ("p" or "h1" or "h2" or "h3" or "h4" or "h5" or "h6"
+            or "li" or "blockquote" or "pre" or "code" or "table" or "tr" or "td" or "th"))
             return false;
 
-        var win = new InlineEditWindow(FriendlyElementType(tag), markdown);
+        var win = new InlineEditWindow(FriendlyElementType(tag), markdown, tag);
         win.Committed += (_, text) => onCommit(text);
         win.Show(owner);
         return true;

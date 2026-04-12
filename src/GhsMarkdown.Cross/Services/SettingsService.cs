@@ -18,8 +18,18 @@ public record AppSettings
     public bool   ShowFormattingToolbar { get; init; } = true;
     public bool   LeftPanelOpen         { get; init; } = true;
     public string ActiveIcon            { get; init; } = "Topology";
+    public bool   WordWrap             { get; init; } = false;
+    public bool   ShowLineNumbers      { get; init; } = true;
+    public bool   HighlightCurrentLine { get; init; } = true;
     public string AnthropicApiKey        { get; init; } = "";
     public List<string> RecentFiles      { get; init; } = new();
+    public Dictionary<string, string> CustomThemeColors { get; init; } = new();
+
+    // BL-03: Detached preview window position/size
+    public double DetachedPreviewX      { get; init; } = 100;
+    public double DetachedPreviewY      { get; init; } = 100;
+    public double DetachedPreviewWidth  { get; init; } = 800;
+    public double DetachedPreviewHeight { get; init; } = 600;
 }
 
 public class SettingsService

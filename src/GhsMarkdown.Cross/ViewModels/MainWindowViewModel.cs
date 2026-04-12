@@ -60,9 +60,10 @@ public partial class MainWindowViewModel : ObservableObject
 
     [ObservableProperty] private string _currentThemeName = "GHS Dark";
 
-    public bool IsThemeDark  => _themeService.CurrentTheme == GhsTheme.Dark;
-    public bool IsThemeLight => _themeService.CurrentTheme == GhsTheme.Light;
-    public bool IsThemeAuto  => _themeService.CurrentTheme == GhsTheme.Auto;
+    public bool IsThemeDark   => _themeService.CurrentTheme == GhsTheme.Dark;
+    public bool IsThemeLight  => _themeService.CurrentTheme == GhsTheme.Light;
+    public bool IsThemeCustom => _themeService.CurrentTheme == GhsTheme.Custom;
+    public bool IsThemeAuto   => _themeService.CurrentTheme == GhsTheme.Auto;
 
     // ─── Window title ────────────────────────────────────────────────────────
 
@@ -163,6 +164,99 @@ public partial class MainWindowViewModel : ObservableObject
 
     public event EventHandler? EditorFontChanged;
 
+    public event EventHandler? CustomColorsReset;
+
+    // ─── Custom Theme Colors ────────────────────────────────────────────────
+
+    [ObservableProperty]
+    private Dictionary<string, string> _customColors = new()
+    {
+        ["bg-shell"]       = "#1E1E1E",
+        ["bg-panel"]       = "#252526",
+        ["bg-toolbar"]     = "#2D2D2D",
+        ["bg-editor"]      = "#1E1E1E",
+        ["bg-preview"]     = "#212121",
+        ["accent"]         = "#4A9EFF",
+        ["border"]         = "#3E3E42",
+        ["text-primary"]   = "#E8E8E8",
+        ["text-secondary"] = "#ADADAD",
+        ["text-hint"]      = "#909090"
+    };
+
+    [RelayCommand]
+    private void SetCustomColor(string colorSpec)
+    {
+        // colorSpec format: "key:hex" e.g. "accent:#FF0000"
+        var parts = colorSpec.Split(':', 2);
+        if (parts.Length != 2) return;
+        var key = parts[0];
+        var hex = parts[1];
+
+        CustomColors[key] = hex;
+        OnPropertyChanged(nameof(CustomColors));
+
+        // Save to settings
+        var s = _settingsService.Load();
+        var colors = new Dictionary<string, string>(s.CustomThemeColors)
+            { [key] = hex };
+        _settingsService.Save(s with { CustomThemeColors = colors });
+
+        // Chrome first, then WebView CSS
+        _themeService.ApplyCustomColorsToChrome(CustomColors);
+        _themeService.NotifyThemeChanged();
+    }
+
+    [RelayCommand]
+    private void ResetCustomTheme()
+    {
+        CustomColors = new Dictionary<string, string>
+        {
+            ["bg-shell"]       = "#1E1E1E",
+            ["bg-panel"]       = "#252526",
+            ["bg-toolbar"]     = "#2D2D2D",
+            ["bg-editor"]      = "#1E1E1E",
+            ["bg-preview"]     = "#212121",
+            ["accent"]         = "#4A9EFF",
+            ["border"]         = "#3E3E42",
+            ["text-primary"]   = "#E8E8E8",
+            ["text-secondary"] = "#ADADAD",
+            ["text-hint"]      = "#909090"
+        };
+        var s = _settingsService.Load();
+        _settingsService.Save(s with
+            { CustomThemeColors = new Dictionary<string, string>(CustomColors) });
+
+        // Apply defaults to chrome AND re-inject preview CSS
+        _themeService.ApplyCustomColorsToChrome(CustomColors);
+        _themeService.NotifyThemeChanged();
+        CustomColorsReset?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void ResetCustomThemeToLight()
+    {
+        CustomColors = new Dictionary<string, string>
+        {
+            ["bg-shell"]       = "#F9F6F0",
+            ["bg-panel"]       = "#F2EFE8",
+            ["bg-toolbar"]     = "#EAE7E0",
+            ["bg-editor"]      = "#F9F6F0",
+            ["bg-preview"]     = "#F4F1EB",
+            ["accent"]         = "#1A6BC4",
+            ["border"]         = "#D8D4CC",
+            ["text-primary"]   = "#1A1A1A",
+            ["text-secondary"] = "#5A5A5A",
+            ["text-hint"]      = "#999999"
+        };
+        var s = _settingsService.Load();
+        _settingsService.Save(s with
+            { CustomThemeColors = new Dictionary<string, string>(CustomColors) });
+
+        _themeService.ApplyCustomColorsToChrome(CustomColors);
+        _themeService.NotifyThemeChanged();
+        CustomColorsReset?.Invoke(this, EventArgs.Empty);
+    }
+
     // ─── AI Assist API Key ──────────────────────────────────────────────────
 
     private string _anthropicApiKey = "";
@@ -249,6 +343,13 @@ public partial class MainWindowViewModel : ObservableObject
 
     public void SetFocusModeAction(Action<bool> action) => _focusModeAction = action;
 
+    // ─── Detach Preview ─────────────────────────────────────────────────────
+
+    private Action? _detachPreviewAction;
+    [ObservableProperty] private bool _isPreviewDetached = false;
+    public IRelayCommand DetachPreviewCommand { get; }
+    public void SetDetachPreviewAction(Action action) => _detachPreviewAction = action;
+
     // ─── Focus Editor ───────────────────────────────────────────────────────
 
     private Action? _focusEditorAction;
@@ -258,6 +359,32 @@ public partial class MainWindowViewModel : ObservableObject
 
     public bool ShowFormattingToolbar { get; private set; }
     public IRelayCommand ToggleFormattingToolbarCommand { get; }
+
+    [ObservableProperty] private bool _wordWrap = false;
+    [ObservableProperty] private bool _showLineNumbers = true;
+    [ObservableProperty] private bool _highlightCurrentLine = true;
+
+    partial void OnWordWrapChanged(bool value)
+    {
+        var s = _settingsService.Load();
+        _settingsService.Save(s with { WordWrap = value });
+    }
+
+    partial void OnShowLineNumbersChanged(bool value)
+    {
+        var s = _settingsService.Load();
+        _settingsService.Save(s with { ShowLineNumbers = value });
+    }
+
+    partial void OnHighlightCurrentLineChanged(bool value)
+    {
+        var s = _settingsService.Load();
+        _settingsService.Save(s with { HighlightCurrentLine = value });
+    }
+
+    [RelayCommand] private void ToggleWordWrap()             => WordWrap             = !WordWrap;
+    [RelayCommand] private void ToggleShowLineNumbers()      => ShowLineNumbers      = !ShowLineNumbers;
+    [RelayCommand] private void ToggleHighlightCurrentLine() => HighlightCurrentLine = !HighlightCurrentLine;
 
     public IRelayCommand FormatBoldCommand          { get; }
     public IRelayCommand FormatItalicCommand        { get; }
@@ -316,6 +443,7 @@ public partial class MainWindowViewModel : ObservableObject
         Timeline         = timelineVm;
         ExportPanel      = exportPanel;
         PrintCommand     = new RelayCommand(() => _printAction?.Invoke());
+        DetachPreviewCommand = new RelayCommand(() => _detachPreviewAction?.Invoke());
         ToggleFocusModeCommand = new RelayCommand(() =>
         {
             IsFocusModeActive = !IsFocusModeActive;
@@ -396,6 +524,20 @@ public partial class MainWindowViewModel : ObservableObject
         _snippetLibraryPath      = settings.SnippetLibraryPath;
         _anthropicApiKey         = settings.AnthropicApiKey;
 
+        // Restore custom theme colors
+        var savedColors = settings.CustomThemeColors;
+        if (savedColors.Count > 0)
+            foreach (var kv in savedColors)
+                _customColors[kv.Key] = kv.Value;
+
+        // Apply custom colors to Avalonia chrome on startup
+        if (_themeService.CurrentTheme == GhsTheme.Custom && _customColors.Count > 0)
+        {
+            Dispatcher.UIThread.Post(() =>
+                _themeService.ApplyCustomColorsToChrome(_customColors),
+                DispatcherPriority.Loaded);
+        }
+
         // Restore left panel open/closed state and active icon
         if (!settings.LeftPanelOpen)
         {
@@ -407,6 +549,11 @@ public partial class MainWindowViewModel : ObservableObject
 #pragma warning restore MVVMTK0034
         IsFocusModeActive        = settings.FocusMode;
         ShowFormattingToolbar    = settings.ShowFormattingToolbar;
+#pragma warning disable MVVMTK0034
+        _wordWrap             = settings.WordWrap;
+        _showLineNumbers      = settings.ShowLineNumbers;
+        _highlightCurrentLine = settings.HighlightCurrentLine;
+#pragma warning restore MVVMTK0034
 
         // Swap left panel occupant to match restored icon
         if (_isLeftPanelOpen)
@@ -423,12 +570,14 @@ public partial class MainWindowViewModel : ObservableObject
         CurrentThemeName = themeService.CurrentThemeName;
         OnPropertyChanged(nameof(IsThemeDark));
         OnPropertyChanged(nameof(IsThemeLight));
+        OnPropertyChanged(nameof(IsThemeCustom));
         OnPropertyChanged(nameof(IsThemeAuto));
         themeService.ThemeChanged += (_, _) =>
         {
             CurrentThemeName = themeService.CurrentThemeName;
             OnPropertyChanged(nameof(IsThemeDark));
             OnPropertyChanged(nameof(IsThemeLight));
+            OnPropertyChanged(nameof(IsThemeCustom));
             OnPropertyChanged(nameof(IsThemeAuto));
         };
 
@@ -529,9 +678,13 @@ public partial class MainWindowViewModel : ObservableObject
         // Formatting Toolbar
         r.Register(new CommandDescriptor("view.formattingToolbar", "Toggle Formatting Toolbar", "Navigation", () => ToggleFormattingToolbarCommand.Execute(null), "Ctrl+Shift+B"));
 
+        // Detach Preview
+        r.Register(new CommandDescriptor("view.detachPreview", "Detach Preview Window", "Navigation", () => DetachPreviewCommand.Execute(null), "Ctrl+D"));
+
         // Settings
-        r.Register(new CommandDescriptor("settings.theme.dark",  "Theme: GHS Dark",  "Settings", () => SetTheme("Dark")));
-        r.Register(new CommandDescriptor("settings.theme.light", "Theme: GHS Light", "Settings", () => SetTheme("Light")));
+        r.Register(new CommandDescriptor("settings.theme.dark",   "Theme: GHS Dark",   "Settings", () => SetTheme("Dark")));
+        r.Register(new CommandDescriptor("settings.theme.light",  "Theme: GHS Light",  "Settings", () => SetTheme("Light")));
+        r.Register(new CommandDescriptor("settings.theme.custom", "Theme: GHS Custom", "Settings", () => SetTheme("Custom")));
     }
 
     private void UpdateWindowTitle()
@@ -581,7 +734,8 @@ public partial class MainWindowViewModel : ObservableObject
             EditorFontSize          = EditorFontSize,
             AutoSaveIntervalSeconds = AutoSaveIntervalSeconds,
             SnippetLibraryPath      = SnippetLibraryPath,
-            RecentFiles             = _fileService.GetRecentFiles().ToList()
+            RecentFiles             = _fileService.GetRecentFiles().ToList(),
+            CustomThemeColors       = new Dictionary<string, string>(CustomColors)
         });
     }
 
@@ -668,11 +822,24 @@ public partial class MainWindowViewModel : ObservableObject
     {
         var theme = themeName switch
         {
-            "Light" => GhsTheme.Light,
-            "Auto"  => GhsTheme.Auto,
-            _       => GhsTheme.Dark
+            "Light"  => GhsTheme.Light,
+            "Custom" => GhsTheme.Custom,
+            "Auto"   => GhsTheme.Auto,
+            _        => GhsTheme.Dark
         };
         _themeService.SetTheme(theme);
+        // When switching to Custom, load saved colors and apply everywhere
+        if (theme == GhsTheme.Custom)
+        {
+            var s = _settingsService.Load();
+            foreach (var kv in s.CustomThemeColors)
+                if (CustomColors.ContainsKey(kv.Key))
+                    CustomColors[kv.Key] = kv.Value;
+            _themeService.NotifyThemeChanged();
+            Dispatcher.UIThread.Post(() =>
+                _themeService.ApplyCustomColorsToChrome(CustomColors),
+                DispatcherPriority.Loaded);
+        }
     }
 
     // ─── View mode commands ───────────────────────────────────────────────────
