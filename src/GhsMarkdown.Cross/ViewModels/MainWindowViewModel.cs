@@ -34,6 +34,7 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty] private bool   _isSettingsOpen = false;
     [ObservableProperty] private double _leftPanelWidth = 220.0;
     [ObservableProperty] private double _rightPanelWidth = 0.0;
+    private double _rightPanelOpenWidth = 200.0;
 
     private string _activeIcon = "Topology";
     public string ActiveIcon
@@ -171,16 +172,27 @@ public partial class MainWindowViewModel : ObservableObject
     [ObservableProperty]
     private Dictionary<string, string> _customColors = new()
     {
-        ["bg-shell"]       = "#1E1E1E",
-        ["bg-panel"]       = "#252526",
-        ["bg-toolbar"]     = "#2D2D2D",
-        ["bg-editor"]      = "#1E1E1E",
-        ["bg-preview"]     = "#212121",
-        ["accent"]         = "#4A9EFF",
-        ["border"]         = "#3E3E42",
-        ["text-primary"]   = "#E8E8E8",
-        ["text-secondary"] = "#ADADAD",
-        ["text-hint"]      = "#909090"
+        ["bg-shell"]         = "#1E1E1E",
+        ["bg-panel"]         = "#252526",
+        ["bg-toolbar"]       = "#2D2D2D",
+        ["bg-editor"]        = "#1E1E1E",
+        ["bg-preview"]       = "#212121",
+        ["bg-gutter"]        = "#232323",
+        ["accent"]           = "#4A9EFF",
+        ["border"]           = "#3E3E42",
+        ["text-primary"]     = "#E8E8E8",
+        ["text-secondary"]   = "#ADADAD",
+        ["text-hint"]        = "#909090",
+        ["syntax-h1"]        = "#4A9EFF",
+        ["syntax-h2"]        = "#5AB865",
+        ["syntax-h3"]        = "#B8954A",
+        ["syntax-h4"]        = "#888888",
+        ["syntax-h5"]        = "#666666",
+        ["syntax-h6"]        = "#555555",
+        ["syntax-bold"]      = "#E8E8E8",
+        ["syntax-italic"]    = "#D0D0D0",
+        ["syntax-code"]      = "#C792EA",
+        ["syntax-blockquote"] = "#ADADAD"
     };
 
     [RelayCommand]
@@ -211,16 +223,27 @@ public partial class MainWindowViewModel : ObservableObject
     {
         CustomColors = new Dictionary<string, string>
         {
-            ["bg-shell"]       = "#1E1E1E",
-            ["bg-panel"]       = "#252526",
-            ["bg-toolbar"]     = "#2D2D2D",
-            ["bg-editor"]      = "#1E1E1E",
-            ["bg-preview"]     = "#212121",
-            ["accent"]         = "#4A9EFF",
-            ["border"]         = "#3E3E42",
-            ["text-primary"]   = "#E8E8E8",
-            ["text-secondary"] = "#ADADAD",
-            ["text-hint"]      = "#909090"
+            ["bg-shell"]         = "#1E1E1E",
+            ["bg-panel"]         = "#252526",
+            ["bg-toolbar"]       = "#2D2D2D",
+            ["bg-editor"]        = "#1E1E1E",
+            ["bg-preview"]       = "#212121",
+            ["bg-gutter"]        = "#232323",
+            ["accent"]           = "#4A9EFF",
+            ["border"]           = "#3E3E42",
+            ["text-primary"]     = "#E8E8E8",
+            ["text-secondary"]   = "#ADADAD",
+            ["text-hint"]        = "#909090",
+            ["syntax-h1"]        = "#4A9EFF",
+            ["syntax-h2"]        = "#5AB865",
+            ["syntax-h3"]        = "#B8954A",
+            ["syntax-h4"]        = "#888888",
+            ["syntax-h5"]        = "#666666",
+            ["syntax-h6"]        = "#555555",
+            ["syntax-bold"]      = "#E8E8E8",
+            ["syntax-italic"]    = "#D0D0D0",
+            ["syntax-code"]      = "#C792EA",
+            ["syntax-blockquote"] = "#ADADAD"
         };
         var s = _settingsService.Load();
         _settingsService.Save(s with
@@ -237,16 +260,27 @@ public partial class MainWindowViewModel : ObservableObject
     {
         CustomColors = new Dictionary<string, string>
         {
-            ["bg-shell"]       = "#F9F6F0",
-            ["bg-panel"]       = "#F2EFE8",
-            ["bg-toolbar"]     = "#EAE7E0",
-            ["bg-editor"]      = "#F9F6F0",
-            ["bg-preview"]     = "#F4F1EB",
-            ["accent"]         = "#1A6BC4",
-            ["border"]         = "#D8D4CC",
-            ["text-primary"]   = "#1A1A1A",
-            ["text-secondary"] = "#5A5A5A",
-            ["text-hint"]      = "#999999"
+            ["bg-shell"]         = "#F9F6F0",
+            ["bg-panel"]         = "#F2EFE8",
+            ["bg-toolbar"]       = "#EAE7E0",
+            ["bg-editor"]        = "#F9F6F0",
+            ["bg-preview"]       = "#F4F1EB",
+            ["bg-gutter"]        = "#EDE9E2",
+            ["accent"]           = "#1A6BC4",
+            ["border"]           = "#D8D4CC",
+            ["text-primary"]     = "#1A1A1A",
+            ["text-secondary"]   = "#5A5A5A",
+            ["text-hint"]        = "#999999",
+            ["syntax-h1"]        = "#1A6BC4",
+            ["syntax-h2"]        = "#2E7D32",
+            ["syntax-h3"]        = "#7B5E20",
+            ["syntax-h4"]        = "#5A5A5A",
+            ["syntax-h5"]        = "#777777",
+            ["syntax-h6"]        = "#888888",
+            ["syntax-bold"]      = "#1A1A1A",
+            ["syntax-italic"]    = "#555566",
+            ["syntax-code"]      = "#7C3AED",
+            ["syntax-blockquote"] = "#5A5A5A"
         };
         var s = _settingsService.Load();
         _settingsService.Save(s with
@@ -523,6 +557,9 @@ public partial class MainWindowViewModel : ObservableObject
         _autoSaveIntervalSeconds = settings.AutoSaveIntervalSeconds;
         _snippetLibraryPath      = settings.SnippetLibraryPath;
         _anthropicApiKey         = settings.AnthropicApiKey;
+        _rightPanelOpenWidth     = settings.RightPanelOpenWidth > 0
+            ? settings.RightPanelOpenWidth
+            : 200.0;
 
         // Restore custom theme colors
         var savedColors = settings.CustomThemeColors;
@@ -735,7 +772,10 @@ public partial class MainWindowViewModel : ObservableObject
             AutoSaveIntervalSeconds = AutoSaveIntervalSeconds,
             SnippetLibraryPath      = SnippetLibraryPath,
             RecentFiles             = _fileService.GetRecentFiles().ToList(),
-            CustomThemeColors       = new Dictionary<string, string>(CustomColors)
+            CustomThemeColors       = new Dictionary<string, string>(CustomColors),
+            RightPanelOpenWidth     = _rightPanelOpenWidth,
+            LeftPanelOpen           = IsLeftPanelOpen,
+            ActiveIcon              = _activeIcon
         });
     }
 
@@ -812,7 +852,15 @@ public partial class MainWindowViewModel : ObservableObject
     private void ToggleRightPanel()
     {
         IsRightPanelOpen = !IsRightPanelOpen;
-        RightPanelWidth  = IsRightPanelOpen ? 200.0 : 0.0;
+        RightPanelWidth  = IsRightPanelOpen ? _rightPanelOpenWidth : 0.0;
+    }
+
+    /// <summary>Called by code-behind after right panel drag ends.</summary>
+    public void PersistRightPanelWidth()
+    {
+        _rightPanelOpenWidth = RightPanelWidth;
+        var s = _settingsService.Load();
+        _settingsService.Save(s with { RightPanelOpenWidth = RightPanelWidth });
     }
 
     // ─── Theme command ────────────────────────────────────────────────────────

@@ -3,14 +3,14 @@
 
 [Setup]
 AppName=GHS Markdown Editor
-AppVersion=1.0.0
+AppVersion=1.0.1
 AppPublisher=GHS
 AppPublisherURL=https://github.com/michaeldhead/MarkDown-CrossPlatform
 AppSupportURL=https://github.com/michaeldhead/MarkDown-CrossPlatform/issues
 DefaultDirName={autopf}\GHS Markdown Editor
 DefaultGroupName=GHS\GHS Markdown Editor
 OutputDir=output
-OutputBaseFilename=GHSMarkdownEditor-Setup-1.0.0
+OutputBaseFilename=GHSMarkdownEditor-Setup-1.0.1
 Compression=lzma2/ultra64
 SolidCompression=yes
 MinVersion=10.0
