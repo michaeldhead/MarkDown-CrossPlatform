@@ -139,6 +139,9 @@ public class ThemeService : ObservableObject
           --syntax-h5: #666666;
           --syntax-h6: #555555;
           --syntax-code: #C792EA;
+          --syntax-bold: #E8E8E8;
+          --syntax-italic: #D0D0D0;
+          --syntax-blockquote: #ADADAD;
           --active-block: #0D1F35;
           --active-border: #2A4A6A;
         }
@@ -149,15 +152,18 @@ public class ThemeService : ObservableObject
         h4          { color: var(--syntax-h4); }
         h5          { color: var(--syntax-h5); }
         h6          { color: var(--syntax-h6); }
+        strong, b   { color: var(--syntax-bold); }
+        em, i       { color: var(--syntax-italic); }
         code        { color: var(--syntax-code); background: var(--bg-editor); padding: 2px 5px; border-radius: 3px; }
         pre         { background: var(--bg-editor); padding: 1rem; border-radius: 6px; border-left: 3px solid var(--accent); }
         pre code    { background: none; padding: 0; }
-        blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-secondary); margin-left: 0; }
+        blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--syntax-blockquote); margin-left: 0; }
         a           { color: var(--accent); }
         hr          { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
         table       { border-collapse: collapse; width: 100%; }
         th, td      { border: 1px solid var(--border); padding: 0.5rem 1rem; }
         th          { background: var(--bg-panel); }
+        td          { background: var(--bg-preview); }
         .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
         """;
 
@@ -226,10 +232,16 @@ public class ThemeService : ObservableObject
               --text-primary: {{Get("text-primary", "#E8E8E8")}};
               --text-secondary:{{Get("text-secondary","#ADADAD")}};
               --text-hint:    {{Get("text-hint",    "#909090")}};
-              --syntax-h1: #4A9EFF; --syntax-h2: #5AB865;
-              --syntax-h3: #B8954A; --syntax-h4: #888888;
-              --syntax-h5: #666666; --syntax-h6: #555555;
-              --syntax-code: #C792EA;
+              --syntax-h1:          {{Get("syntax-h1",          "#4A9EFF")}};
+              --syntax-h2:          {{Get("syntax-h2",          "#5AB865")}};
+              --syntax-h3:          {{Get("syntax-h3",          "#B8954A")}};
+              --syntax-h4:          {{Get("syntax-h4",          "#888888")}};
+              --syntax-h5:          {{Get("syntax-h5",          "#666666")}};
+              --syntax-h6:          {{Get("syntax-h6",          "#555555")}};
+              --syntax-bold:        {{Get("syntax-bold",        "#E8E8E8")}};
+              --syntax-italic:      {{Get("syntax-italic",      "#D0D0D0")}};
+              --syntax-code:        {{Get("syntax-code",        "#C792EA")}};
+              --syntax-blockquote:  {{Get("syntax-blockquote",  "#ADADAD")}};
               --active-block: #0D1F35; --active-border: #2A4A6A;
             }
             body        { background: var(--bg-preview); color: var(--text-primary); font-family: sans-serif; }
@@ -239,15 +251,18 @@ public class ThemeService : ObservableObject
             h4          { color: var(--syntax-h4); }
             h5          { color: var(--syntax-h5); }
             h6          { color: var(--syntax-h6); }
+            strong, b   { color: var(--syntax-bold); }
+            em, i       { color: var(--syntax-italic); }
             code        { color: var(--syntax-code); background: var(--bg-editor); padding: 2px 5px; border-radius: 3px; }
             pre         { background: var(--bg-editor); padding: 1rem; border-radius: 6px; border-left: 3px solid var(--accent); }
             pre code    { background: none; padding: 0; }
-            blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-secondary); margin-left: 0; }
+            blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--syntax-blockquote); margin-left: 0; }
             a           { color: var(--accent); }
             hr          { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
             table       { border-collapse: collapse; width: 100%; }
             th, td      { border: 1px solid var(--border); padding: 0.5rem 1rem; }
             th          { background: var(--bg-panel); }
+            td          { background: var(--bg-preview); }
             .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
             """;
     }
@@ -274,6 +289,9 @@ public class ThemeService : ObservableObject
           --syntax-h5: #777777;
           --syntax-h6: #888888;
           --syntax-code: #7C3AED;
+          --syntax-bold: #1A1A1A;
+          --syntax-italic: #555566;
+          --syntax-blockquote: #5A5A5A;
           --active-block: #E0EDFF;
           --active-border: #A8C8F0;
         }
@@ -284,15 +302,18 @@ public class ThemeService : ObservableObject
         h4          { color: var(--syntax-h4); }
         h5          { color: var(--syntax-h5); }
         h6          { color: var(--syntax-h6); }
+        strong, b   { color: var(--syntax-bold); }
+        em, i       { color: var(--syntax-italic); }
         code        { color: var(--syntax-code); background: var(--bg-editor); padding: 2px 5px; border-radius: 3px; }
         pre         { background: var(--bg-editor); padding: 1rem; border-radius: 6px; border-left: 3px solid var(--accent); }
         pre code    { background: none; padding: 0; }
-        blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--text-secondary); margin-left: 0; }
+        blockquote  { border-left: 3px solid var(--accent); padding-left: 1rem; color: var(--syntax-blockquote); margin-left: 0; }
         a           { color: var(--accent); }
         hr          { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
         table       { border-collapse: collapse; width: 100%; }
         th, td      { border: 1px solid var(--border); padding: 0.5rem 1rem; }
         th          { background: var(--bg-panel); }
+        td          { background: var(--bg-preview); }
         .ghs-active { outline: 2px solid var(--accent); border-radius: 3px; background: var(--active-block); }
         """;
 

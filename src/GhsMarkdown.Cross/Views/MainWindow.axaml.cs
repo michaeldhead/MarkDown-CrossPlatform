@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Animation;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
@@ -49,11 +50,18 @@ public partial class MainWindow : Window
     private double _dragStartX;
     private double _dragStartRatio;
 
+    // ─── Right panel drag ─────────────────────────────────────────────────────
+    private bool   _isDraggingRightPanel;
+    private double _rightPanelDragStartX;
+    private double _rightPanelDragStartWidth;
+    private Transitions? _rightPanelTransitions;
+
     // ─── Scroll sync ──────────────────────────────────────────────────────────
     private bool   _isSyncingScroll;
     private double _lastProgrammaticScrollFraction = 0;
     private DateTime _lastEditorSyncTime = DateTime.MinValue;
     private const int ScrollSyncCooldownMs = 300;
+    private int _lastSyncedAnchorLine = -1;
 
     // ─── Detached preview ────────────────────────────────────────────────────
     private DetachedPreviewWindow? _detachedWindow;
@@ -702,7 +710,13 @@ public partial class MainWindow : Window
             transformers.Remove(t);
 
         var isLight = _mainVm?.IsThemeLight == true;
-        transformers.Add(new MarkdownColorizingTransformer(isLight));
+
+        var themeService = App.Services.GetService(typeof(ThemeService)) as ThemeService;
+        var customColors = themeService?.CurrentTheme == GhsTheme.Custom
+            ? _mainVm?.CustomColors
+            : null;
+
+        transformers.Add(new MarkdownColorizingTransformer(isLight, customColors));
     }
 
     // ─── Editor font ──────────────────────────────────────────────────────────
@@ -1087,15 +1101,26 @@ public partial class MainWindow : Window
 
         const string js = """
             (function() {
-              // 1. Scroll reporting
+              // 1. Scroll reporting with anchor
               window._ghsScrolling = false;
               window.addEventListener('scroll', function() {
                 if (window._ghsScrolling) return;
+                // Find the topmost element that is at least partially in the viewport
+                var anchorLine = null;
+                var els = document.querySelectorAll('[data-source-line]');
+                for (var i = 0; i < els.length; i++) {
+                  var rect = els[i].getBoundingClientRect();
+                  if (rect.bottom > 0) {
+                    anchorLine = parseInt(els[i].getAttribute('data-source-line'));
+                    break;
+                  }
+                }
                 try {
                   window.chrome.webview.postMessage(JSON.stringify({
                     type: 'scroll',
                     y: window.scrollY,
-                    h: document.body.scrollHeight - window.innerHeight
+                    h: document.body.scrollHeight - window.innerHeight,
+                    anchorLine: anchorLine
                   }));
                 } catch(e) {}
               });
@@ -1197,7 +1222,7 @@ public partial class MainWindow : Window
             {
                 case "scroll":
                     _savedScrollY = msg.ScrollY;
-                    HandleScrollSync(msg.ScrollY, msg.ScrollH);
+                    HandleScrollSync(msg.ScrollY, msg.ScrollH, msg.AnchorLine);
                     break;
                 case "click-sync":
                     HandleClickSync(msg.SourceLine);
@@ -1286,35 +1311,52 @@ public partial class MainWindow : Window
 
     // ─── Scroll sync handler ──────────────────────────────────────────────────
 
-    private void HandleScrollSync(double scrollY, double scrollH)
+    private void HandleScrollSync(double scrollY, double scrollH, int? anchorLine)
     {
         if (_mainVm?.CurrentViewMode != ViewMode.Split) return;
         if (_isSyncingScroll || _editor is null) return;
         if (_previewVm?.IsTimelinePreviewActive == true) return;
+        if ((DateTime.UtcNow - _lastEditorSyncTime).TotalMilliseconds < ScrollSyncCooldownMs) return;
 
-        // Cooldown: skip if we recently synced from editor to prevent echo
-        if ((DateTime.UtcNow - _lastEditorSyncTime).TotalMilliseconds < ScrollSyncCooldownMs)
-            return;
-
-        if (scrollH < 1) return;
-
-        var previewFraction = Math.Clamp(scrollY / scrollH, 0.0, 1.0);
-
-        // Only act if preview moved away from where we last set it (user manually scrolled)
-        if (Math.Abs(previewFraction - _lastProgrammaticScrollFraction) < 0.02) return;
-
-        _isSyncingScroll = true;
-        try
+        if (anchorLine.HasValue && anchorLine.Value > 0)
         {
-            var docHeight  = _editor.TextArea.TextView.DocumentHeight;
-            var viewHeight = _editor.Bounds.Height;
-            var maxEditorScroll = Math.Max(1, docHeight - viewHeight);
-            _editor.ScrollToVerticalOffset(previewFraction * maxEditorScroll);
-            _lastProgrammaticScrollFraction = previewFraction;
+            // Anchor-based: skip if anchor hasn't changed
+            if (anchorLine.Value == _lastSyncedAnchorLine) return;
+
+            _isSyncingScroll = true;
+            try
+            {
+                var lineNum = Math.Min(anchorLine.Value, _editor.Document.LineCount);
+                var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
+                var targetOffset = Math.Max(0, (lineNum - 1) * lineHeight);
+                _editor.ScrollToVerticalOffset(targetOffset);
+                _lastSyncedAnchorLine = anchorLine.Value;
+                _lastProgrammaticScrollFraction = ComputeEditorScrollFraction();
+            }
+            finally
+            {
+                _isSyncingScroll = false;
+            }
         }
-        finally
+        else if (scrollH >= 1)
         {
-            _isSyncingScroll = false;
+            // Fallback: proportional (no anchors in document, e.g. plain paragraphs only)
+            var previewFraction = Math.Clamp(scrollY / scrollH, 0.0, 1.0);
+            if (Math.Abs(previewFraction - _lastProgrammaticScrollFraction) < 0.02) return;
+
+            _isSyncingScroll = true;
+            try
+            {
+                var docHeight = _editor.TextArea.TextView.DocumentHeight;
+                var viewHeight = _editor.Bounds.Height;
+                var maxEditorScroll = Math.Max(1, docHeight - viewHeight);
+                _editor.ScrollToVerticalOffset(previewFraction * maxEditorScroll);
+                _lastProgrammaticScrollFraction = previewFraction;
+            }
+            finally
+            {
+                _isSyncingScroll = false;
+            }
         }
 
         UpdateScrollSyncState();
@@ -1329,12 +1371,22 @@ public partial class MainWindow : Window
 
         if (_editor is null || _sourceMappingService is null) return;
 
-        // Confirm mapping exists
         var selector = _sourceMappingService.GetElementSelector(sourceLine);
         if (selector is null) return;
 
+        // Suppress OnEditorScrollChanged from re-syncing the preview.
+        // ScrollToLine fires ScrollOffsetChanged synchronously; resetting via
+        // Dispatcher.Post(Background) ensures the flag is still true when the
+        // event handler runs, then clears after the layout pass.
+        _isSyncingScroll = true;
+        _lastSyncedAnchorLine = sourceLine;
+
         _editor.TextArea.Caret.Line = sourceLine;
         _editor.ScrollToLine(sourceLine);
+
+        Dispatcher.UIThread.Post(
+            () => _isSyncingScroll = false,
+            Avalonia.Threading.DispatcherPriority.Background);
     }
 
     // ─── Inline edit handler ──────────────────────────────────────────────────
@@ -1384,32 +1436,47 @@ public partial class MainWindow : Window
     private void UpdateActiveBlockHighlight(int caretLine)
     {
         if (!_webViewReady || _webView is null) return;
-        if (_mainVm?.CurrentViewMode == ViewMode.Edit) return; // Highlight only in Split/Preview
-        if (_previewVm?.IsTimelinePreviewActive == true) return; // Suppress during timeline
+        if (_mainVm?.CurrentViewMode == ViewMode.Edit) return;
+        if (_previewVm?.IsTimelinePreviewActive == true) return;
         if (_sourceMappingService is null) return;
 
-        // Find selector for current line; walk backwards if no block starts here
         string? selector = null;
+        int anchorLine = caretLine;
         for (int line = caretLine; line >= 1; line--)
         {
             selector = _sourceMappingService.GetElementSelector(line);
-            if (selector is not null) break;
+            if (selector is not null) { anchorLine = line; break; }
         }
 
-        if (selector == _lastActiveSelector) return; // Nothing changed
+        if (selector == _lastActiveSelector) return;
         _lastActiveSelector = selector;
 
         string js;
         if (selector is not null)
         {
-            // Escape the selector for embedding in a JS single-quoted string
             var escaped = selector.Replace("\\", "\\\\").Replace("'", "\\'");
+            // Highlight AND bring into view. block:'nearest' only scrolls if the element
+            // is outside the viewport — no jump if it is already visible.
             js = "(function() {" +
                  "  var prev = document.querySelector('.ghs-active');" +
                  "  if (prev) prev.classList.remove('ghs-active');" +
                  $"  var el = document.querySelector('{escaped}');" +
-                 "  if (el) el.classList.add('ghs-active');" +
+                 "  if (el) {" +
+                 "    el.classList.add('ghs-active');" +
+                 "    el.scrollIntoView({behavior:'instant', block:'nearest'});" +
+                 "  }" +
                  "})();";
+
+            // Stamp anchor so HandleScrollSync skips the echo when the preview
+            // scroll event fires from the scrollIntoView call above.
+            _lastSyncedAnchorLine = anchorLine;
+
+            // Suppress HandleScrollSync for the echo scroll event duration.
+            _isSyncingScroll = true;
+            _ = _webView.InvokeScript(js);
+            Dispatcher.UIThread.Post(
+                () => _isSyncingScroll = false,
+                Avalonia.Threading.DispatcherPriority.Background);
         }
         else
         {
@@ -1417,9 +1484,8 @@ public partial class MainWindow : Window
                  "  var prev = document.querySelector('.ghs-active');" +
                  "  if (prev) prev.classList.remove('ghs-active');" +
                  "})();";
+            _ = _webView.InvokeScript(js);
         }
-
-        _ = _webView.InvokeScript(js);
     }
 
     // ─── Editor → Preview scroll ──────────────────────────────────────────────
@@ -1427,32 +1493,90 @@ public partial class MainWindow : Window
     private void OnEditorScrollChanged(object? sender, EventArgs e)
     {
         if (_isSyncingScroll || _editor is null) return;
-        if (_previewVm?.IsTimelinePreviewActive == true) return; // Suppress during timeline
+        if (_previewVm?.IsTimelinePreviewActive == true) return;
 
+        // Sync to detached preview (always proportional — anchor sync is main-window only)
         var fraction = ComputeEditorScrollFraction();
-
-        // Also sync to detached preview window if open
         _detachedWindow?.ScrollToFraction(fraction);
 
         if (_mainVm?.CurrentViewMode != ViewMode.Split) return;
         if (!_webViewReady || _webView is null) return;
 
-        _isSyncingScroll = true;
-        try
-        {
-            _lastProgrammaticScrollFraction = fraction;
-            _lastEditorSyncTime = DateTime.UtcNow;
+        // Find first visible editor line, walk back to the nearest mapped block
+        var firstLine = GetFirstVisibleLine();
+        string? anchorSelector = null;
+        int anchorLine = firstLine;
 
-            var targetFractionStr = fraction.ToString("F6", CultureInfo.InvariantCulture);
-            var script = $"window._ghsScrolling=true; window.scrollTo(0, (document.body.scrollHeight - window.innerHeight) * {targetFractionStr}); setTimeout(function(){{window._ghsScrolling=false;}}, 200);";
-            _ = _webView.InvokeScript(script);
-        }
-        finally
+        for (int l = firstLine; l >= 1; l--)
         {
-            _isSyncingScroll = false;
+            anchorSelector = _sourceMappingService?.GetElementSelector(l);
+            if (anchorSelector is not null) { anchorLine = l; break; }
+        }
+
+        if (anchorSelector is not null)
+        {
+            // Skip if the anchor block hasn't changed — avoids redundant InvokeScript calls
+            if (anchorLine == _lastSyncedAnchorLine) return;
+            _lastSyncedAnchorLine = anchorLine;
+
+            _isSyncingScroll = true;
+            try
+            {
+                _lastEditorSyncTime = DateTime.UtcNow;
+                var escaped = anchorSelector.Replace("\\", "\\\\").Replace("'", "\\'");
+                var script =
+                    $"(function(){{" +
+                    $"  window._ghsScrolling=true;" +
+                    $"  var el=document.querySelector('{escaped}');" +
+                    $"  if(el) el.scrollIntoView({{behavior:'instant',block:'start'}});" +
+                    $"  setTimeout(function(){{window._ghsScrolling=false;}},200);" +
+                    $"}})();";
+                _ = _webView.InvokeScript(script);
+            }
+            finally
+            {
+                _isSyncingScroll = false;
+            }
+        }
+        else
+        {
+            // No anchor found (content before first mapped block) — proportional fallback
+            if (Math.Abs(fraction - _lastProgrammaticScrollFraction) < 0.01) return;
+
+            _isSyncingScroll = true;
+            try
+            {
+                _lastProgrammaticScrollFraction = fraction;
+                _lastEditorSyncTime = DateTime.UtcNow;
+                var targetFractionStr = fraction.ToString("F6", CultureInfo.InvariantCulture);
+                var script =
+                    $"window._ghsScrolling=true;" +
+                    $"window.scrollTo(0,(document.body.scrollHeight - window.innerHeight)*{targetFractionStr});" +
+                    $"setTimeout(function(){{window._ghsScrolling=false;}},200);";
+                _ = _webView.InvokeScript(script);
+            }
+            finally
+            {
+                _isSyncingScroll = false;
+            }
         }
 
         UpdateScrollSyncState();
+    }
+
+    /// <summary>
+    /// Returns the 1-based document line number of the first line visible in the editor viewport.
+    /// Uses DefaultLineHeight as an estimate — sufficient for anchor lookup purposes.
+    /// </summary>
+    private int GetFirstVisibleLine()
+    {
+        if (_editor is null) return 1;
+        var textView = _editor.TextArea.TextView;
+        var scrollY = textView.ScrollOffset.Y;
+        var lineHeight = textView.DefaultLineHeight;
+        if (lineHeight <= 0) return 1;
+        var estimated = Math.Max(1, (int)(scrollY / lineHeight) + 1);
+        return Math.Min(estimated, _editor.Document.LineCount);
     }
 
     private double ComputeEditorScrollFraction()
@@ -1708,6 +1832,14 @@ public partial class MainWindow : Window
             _gutterBorder.PointerReleased += OnGutterPointerReleased;
         }
 
+        var rightDivider = this.FindControl<Border>("RightPanelDivider");
+        if (rightDivider is not null)
+        {
+            rightDivider.PointerPressed  += OnRightPanelDividerPointerPressed;
+            rightDivider.PointerMoved    += OnRightPanelDividerPointerMoved;
+            rightDivider.PointerReleased += OnRightPanelDividerPointerReleased;
+        }
+
         UpdateCenterLayout();
 
         // Listen for layout changes (window resize changes available width)
@@ -1798,6 +1930,59 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    // ─── Right panel drag handlers ───────────────────────────────────────────
+
+    private void OnRightPanelDividerPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (_mainVm is null || !_mainVm.IsRightPanelOpen) return;
+
+        _isDraggingRightPanel     = true;
+        _rightPanelDragStartX     = e.GetPosition(this).X;
+        _rightPanelDragStartWidth = _mainVm.RightPanelWidth;
+
+        // Suppress the width transition so drag is responsive
+        var border = this.FindControl<Border>("RightPanelBorder");
+        if (border is not null)
+        {
+            _rightPanelTransitions = border.Transitions;
+            border.Transitions = null;
+        }
+
+        e.Pointer.Capture(sender as IInputElement);
+        e.Handled = true;
+    }
+
+    private void OnRightPanelDividerPointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (!_isDraggingRightPanel || _mainVm is null) return;
+
+        // Panel is on the right; dragging the left edge leftward makes it wider.
+        var delta    = e.GetPosition(this).X - _rightPanelDragStartX;
+        var newWidth = _rightPanelDragStartWidth - delta;
+
+        // Clamp: minimum 150px, maximum half the window width
+        var maxWidth = Math.Max(150, Bounds.Width / 2);
+        newWidth = Math.Clamp(newWidth, 150, maxWidth);
+
+        _mainVm.RightPanelWidth = newWidth;
+        e.Handled = true;
+    }
+
+    private void OnRightPanelDividerPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isDraggingRightPanel) return;
+        _isDraggingRightPanel = false;
+
+        // Restore transition
+        var border = this.FindControl<Border>("RightPanelBorder");
+        if (border is not null)
+            border.Transitions = _rightPanelTransitions;
+
+        e.Pointer.Capture(null);
+        _mainVm?.PersistRightPanelWidth();
+        e.Handled = true;
+    }
+
     // ─── Draft restore dialog ────────────────────────────────────────────────
 
     private async Task<bool> ShowDraftRestoreDialog(string formattedDate)
@@ -1865,6 +2050,7 @@ public partial class MainWindow : Window
         [property: JsonPropertyName("y")]                 double   ScrollY,
         [property: JsonPropertyName("h")]                 double   ScrollH,
         [property: JsonPropertyName("selectedText")]      string?  SelectedText,
-        [property: JsonPropertyName("previewSourceLine")] int?     PreviewSourceLine
+        [property: JsonPropertyName("previewSourceLine")] int?     PreviewSourceLine,
+        [property: JsonPropertyName("anchorLine")]        int?     AnchorLine
     );
 }

@@ -520,3 +520,280 @@ Both use accent color and `FontSize=16 FontWeight=Bold`.
 Uses GHS Light color values as baseline (cream/off-white palette).
 Follows the same pattern as the existing `ResetCustomTheme` (reset to dark).
 `CustomColorsReset` event raised to trigger ColorPicker refresh in SettingsView.
+
+---
+
+## BL-24 — Custom Theme Reset to Light Bug Fix
+
+**Root cause:** `bg-gutter` was missing from the `CustomColors` default initializer
+and from both reset methods (`ResetCustomTheme` and `ResetCustomThemeToLight`).
+`ApplyCustomColorsToChrome` only applies keys present in the dict, so the gutter
+chrome never received a light value after reset. `ClearCustomColorsFromChrome` already
+listed `bg-gutter` for removal — it was just never being set in the first place.
+
+**Fix:** Added `bg-gutter` to `_customColors` initializer, `ResetCustomTheme()` (dark:
+`#232323`), and `ResetCustomThemeToLight()` (light: `#EDE9E2`) in
+`MainWindowViewModel.cs`.
+
+---
+
+## BL-25 — Custom Theme Markdown Syntax Color Pickers
+
+Extends GHS Custom theme editor with 10 user-configurable Markdown syntax color
+pickers: H1–H6, Bold, Italic, Code, Blockquote.
+
+### New CustomColors keys (added to initializer and both reset methods)
+
+| Key | Dark default | Light default |
+|---|---|---|
+| `syntax-h1` | `#4A9EFF` | `#1A6BC4` |
+| `syntax-h2` | `#5AB865` | `#2E7D32` |
+| `syntax-h3` | `#B8954A` | `#7B5E20` |
+| `syntax-h4` | `#888888` | `#5A5A5A` |
+| `syntax-h5` | `#666666` | `#777777` |
+| `syntax-h6` | `#555555` | `#888888` |
+| `syntax-bold` | `#E8E8E8` | `#1A1A1A` |
+| `syntax-italic` | `#D0D0D0` | `#555566` |
+| `syntax-code` | `#C792EA` | `#7C3AED` |
+| `syntax-blockquote` | `#ADADAD` | `#5A5A5A` |
+
+### ThemeService changes
+- `GetCustomCss()`: all `--syntax-*` variables now read from `CustomThemeColors` via
+  `Get(key, default)` pattern. Added `--syntax-bold`, `--syntax-italic`,
+  `--syntax-blockquote` variables.
+- `GetDarkCss()` and `GetLightCss()`: added three new `:root` vars and updated
+  `blockquote` rule to use `var(--syntax-blockquote)`. Added `strong, b` and `em, i`
+  CSS rules.
+
+### MarkdownColorizingTransformer changes
+- Constructor accepts optional `Dictionary<string, string>? customColors` parameter.
+- `BrushFromHex` static helper resolves a brush from the dict, returns null if absent.
+- All heading brushes, bold brush, italic brush, and code brush resolved from
+  `customColors` when present, else from theme-appropriate defaults.
+- Light-variant heading, code, and bold brushes added as constants — these were
+  previously missing (dark-only), so GHS Light now gets correct non-custom defaults too.
+- Blockquote coloring not added to transformer — handled via CSS only.
+
+### MainWindow.axaml.cs — ApplyMarkdownHighlighting()
+- Passes `vm.CustomColors` to transformer when `CurrentTheme == GhsTheme.Custom`,
+  `null` otherwise.
+- `ThemeService` resolved via `App.Services.GetService(typeof(ThemeService))` —
+  no stored `_themeService` field existed in the code-behind.
+
+### SettingsView.axaml
+- "MARKDOWN SYNTAX COLORS" section inserted inside the `IsThemeCustom` StackPanel,
+  between the `text-hint` row and the Reset buttons.
+- 10 ColorPicker rows using the same `Grid ColumnDefinitions="120,*"` pattern.
+- `RefreshColorPickers()` in `SettingsView.axaml.cs` requires no changes — iterates
+  all ColorPicker descendants by Tag automatically.
+
+---
+
+## BL-26 — Click-to-Sync Broken Inside Tables
+
+**Root cause:** `SourceLineRenderer.InjectInContainer` and
+`SourceMappingService.WalkBlocks` both used a pattern match that did not include
+table blocks. The recursive walk descended into tables (as ContainerBlocks) but
+never injected `data-source-line` on the table element itself. Clicking any cell
+fired the JS click handler but `closest('[data-source-line]')` found nothing.
+
+**Markdig API note:** The spec referred to `TableBlock` but Markdig 0.44.0's public
+table type is `Markdig.Extensions.Tables.Table` (inherits `ContainerBlock`), not
+`TableBlock`. The pattern match uses `Table` in both files.
+
+**Fix:** Added `using Markdig.Extensions.Tables;` and `Table` to the type pattern
+in both `SourceLineRenderer.InjectInContainer` and `SourceMappingService.WalkBlocks`.
+Attributes are injected on the `Table` element only — not on rows or cells. Clicking
+any cell bubbles up to the table's `data-source-line` via `closest()`.
+
+---
+
+## BL-29 — Anchor-Based Scroll Sync
+
+Replaces proportional scroll sync with anchor-based sync. Proportional sync mapped
+`scrollY / scrollH` linearly to editor scroll offset, causing drift on long or complex
+documents.
+
+### Approach
+
+**Editor → Preview:** `OnEditorScrollChanged` finds the first visible editor line via
+`GetFirstVisibleLine()` (uses `DefaultLineHeight` as estimate), walks back to the
+nearest mapped block via `_sourceMappingService.GetElementSelector`, then calls
+`scrollIntoView({behavior:'instant', block:'start'})` on that element. Falls back to
+proportional scroll when no anchor exists.
+
+**Preview → Editor:** JS scroll listener finds the topmost partially-visible
+`[data-source-line]` element and reports it as `anchorLine` in the scroll message.
+`HandleScrollSync` uses `DefaultLineHeight × (lineNum − 1)` to compute editor scroll
+offset. Falls back to proportional when `anchorLine` is null (no mapped blocks visible).
+
+### Key fields added
+- `_lastSyncedAnchorLine` — prevents redundant sync when anchor hasn't changed.
+- `anchorLine` property added to `WebMessage` record.
+
+### Echo prevention
+- `_isSyncingScroll` flag suppresses `OnEditorScrollChanged` when preview scroll fires
+  as a result of `HandleScrollSync`, and vice versa.
+- `_lastEditorSyncTime` stamp + `ScrollSyncCooldownMs` (300ms) cooldown in
+  `HandleScrollSync` prevents rapid echo loops.
+
+### Detached preview
+Detached preview window scroll sync remains proportional (`ScrollToFraction`).
+Anchor-based sync is main-window only.
+
+### GetFirstVisibleLine() note
+Uses `DefaultLineHeight` as a uniform estimate. Accurate enough for anchor lookup
+(walk-back corrects small errors). May be slightly off on documents with heavy
+word-wrap — walk-back from estimated line to nearest mapped block provides correction.
+
+---
+
+## BL-29 Follow-Up — HandleClickSync Echo Fix
+
+**Problem:** Clicking an element in the preview moved the editor caret correctly but
+then caused the preview to scroll back to an earlier element. `HandleClickSync` called
+`_editor.ScrollToLine(sourceLine)`, which fired `OnEditorScrollChanged` synchronously.
+`GetFirstVisibleLine()` returned a line earlier than the clicked line (because
+`ScrollToLine` centers the line in the viewport), and the walk-back found an earlier
+anchor, snapping the preview backward.
+
+**Fix:** `HandleClickSync` now sets `_isSyncingScroll = true` and stamps
+`_lastSyncedAnchorLine = sourceLine` before calling `ScrollToLine`. The flag is
+cleared via `Dispatcher.UIThread.Post(..., DispatcherPriority.Background)` to ensure
+it is still true when `OnEditorScrollChanged` fires, then clears after the layout pass.
+
+---
+
+## BL-29 Follow-Up — UpdateActiveBlockHighlight Scroll Fix
+
+**Problem:** Clicking a line in the editor correctly highlighted the matching preview
+element (`ghs-active` class) but did not scroll the preview to show it. The preview
+only scrolled in `OnEditorScrollChanged`, which does not fire on a caret click that
+doesn't move the scroll offset.
+
+**Fix:** `UpdateActiveBlockHighlight` now calls
+`el.scrollIntoView({behavior:'instant', block:'nearest'})` alongside the class toggle.
+`block:'nearest'` is a no-op when the element is already visible — no jump if the
+element is on screen. Stamps `_lastSyncedAnchorLine` and sets `_isSyncingScroll = true`
+(cleared via `Dispatcher.UIThread.Post(..., Background)`) to suppress the echo scroll
+event that `scrollIntoView` triggers in the preview.
+
+---
+
+## BL-27 — Draggable Right Panel Divider
+
+A 6px drag handle is added to the left edge of the right panel, mirroring the gutter
+drag pattern used for the editor/preview split.
+
+### AppSettings
+New field: `public double RightPanelOpenWidth { get; init; } = 200.0;`
+
+### MainWindowViewModel
+- `_rightPanelOpenWidth` backing field (default 200.0).
+- `ToggleRightPanel()` uses `_rightPanelOpenWidth` instead of hardcoded 200.0.
+- `PersistRightPanelWidth()` public method — called from code-behind after drag ends.
+- Constructor restores `_rightPanelOpenWidth` from settings.
+
+### MainWindow.axaml
+- Right panel Border named `RightPanelBorder`.
+- Content restructured: `Grid ColumnDefinitions="6,*"` with Col 0 = `RightPanelDivider`
+  (6px, `bg-gutter` background, `Cursor="SizeWestEast"`) and Col 1 = existing DockPanel.
+
+### MainWindow.axaml.cs
+- `using Avalonia.Animation;` added for `Transitions?` field type.
+- Three drag handlers: `OnRightPanelDividerPointerPressed/Moved/Released`.
+- Transition suppressed during drag (responsive), restored on release.
+- Minimum width: 150px. Maximum: half the window width.
+- Wired inside `InitializeCenterGrid()` (adjacent to gutter wiring).
+
+---
+
+## BL-28 — Icon Rail Color Fix (Formatting Toolbar Emoji Glyph Root Cause)
+
+### What was actually broken
+
+The issue was in the **formatting toolbar** New File and Open File buttons — not the
+left icon rail, which was working correctly throughout. The misattribution caused five
+failed approaches targeting the wrong controls.
+
+### Root cause
+
+The New File (`🗋` U+1F5CB) and Open File (`🗁` U+1F5C1) glyphs were rendered by
+Windows' Segoe UI Emoji font as **color-bitmap emoji** (COLR/CPAL tables). Color-glyph
+rendering ignores `Foreground` entirely — the font draws its own pixels regardless of
+any style or binding. This is why every styling approach failed: the foreground was
+always being set correctly; the glyph renderer just wasn't using it.
+
+Note: `💾` (U+1F4BE, Save) sits in the same Unicode block but Avalonia's font fallback
+routed it to a monochrome font on this system — which is why Save looked fine. Font
+fallback is system-dependent and not consistent across codepoints in the same block.
+
+### Fix
+
+Swapped both glyphs to guaranteed-monochrome BMP characters:
+
+| Button | Before | After |
+|---|---|---|
+| New File | `🗋` U+1F5CB | `✚` U+271A HEAVY GREEK CROSS |
+| Open File | `🗁` U+1F5C1 | `⎘` U+2398 NEXT PAGE |
+
+Also removed explicit `Foreground="{DynamicResource accent}"` from the Export (`↗`)
+and Print (`⎙`) toolbar buttons — the entire formatting toolbar now uses a uniform
+neutral color (`text-hint` from `icon-rail-btn`). Hover still transitions to accent
+via the existing `:pointerover` template selector.
+
+### Lessons for future icon work
+
+1. **Avoid emoji-plane codepoints (U+1F3xx–1F9xx) for themed UI icons on Windows.**
+   Segoe UI Emoji's color glyphs ignore `Foreground`. `\uFE0E` (VS-15 text selector)
+   is not a reliable workaround in Avalonia on Windows.
+
+2. **Font fallback is system-dependent.** Two emoji in the same Unicode block can route
+   to different fonts. Don't assume consistency across codepoints.
+
+3. **Safe ranges for themable glyph icons** (render from Segoe UI / Segoe UI Symbol,
+   always monochrome, `Foreground` applies):
+   - Geometric Shapes (U+25xx): `▢ ◯ ◇ ◈ ⊞ ⊟`
+   - Miscellaneous Technical (U+23xx): `⎘ ⎙ ⌘ ⌥ ⎋ ⎗`
+   - Arrows (U+21xx, U+27xx): `→ ↗ ⇱ ⇲`
+   - Dingbats non-emoji (U+2700–U+27BF, excluding known emoji points): `✓ ✗ ✚ ❏ ❐ ❑ ❒`
+
+4. **For production-grade icons long-term**, prefer `PathIcon` with SVG geometry or a
+   bundled monochrome icon font (Lucide, Feather, Fluent System Icons) as an
+   `avares://` asset. Both sidestep the font fallback problem entirely.
+
+5. **Before writing infrastructure to defeat a styling override, verify the override is
+   actually happening.** Five rounds of `GetVisualDescendants`, `BindingPriority.Animation`,
+   and `DispatcherPriority.Render` defences were added to beat a VisualStateManager that
+   was never involved — the foreground setter was always winning; the glyph renderer
+   wasn't using it.
+
+---
+
+## Table Cell Background Fix (post BL-25)
+
+`td` elements had no explicit background rule in any of the three CSS methods. WebView2
+does not reliably inherit `body` background into table cells, causing `td` to render
+with the browser's native default in dark OS mode.
+
+**Fix:** Added `td { background: var(--bg-preview); }` to `GetDarkCss()`,
+`GetLightCss()`, and `GetCustomCss()` in `ThemeService.cs`. The `th` rule
+(`background: var(--bg-panel)`) was already present and correct.
+
+---
+
+## Left Panel State Persistence Fix
+
+**Root cause:** `ActivateIconCommand` correctly persisted `LeftPanelOpen` and
+`ActiveIcon` using the `s with { ... }` pattern. However, `SaveSettings()` constructed
+a new `AppSettings` object from scratch without including those two fields. Any
+subsequent call to `SaveSettings()` (split ratio drag, font change, view mode switch,
+etc.) silently overwrote the persisted panel state with the `AppSettings` defaults.
+This caused intermittent loss of panel state depending on whether another action
+triggered a save after the panel toggle.
+
+**Fix:**
+- Added `LeftPanelOpen = IsLeftPanelOpen` and `ActiveIcon = _activeIcon` to the
+  `AppSettings` initializer in `SaveSettings()`.
+- Changed `LeftPanelOpen` default in `AppSettings` from `true` to `false` — left panel
+  now defaults to closed on first run.

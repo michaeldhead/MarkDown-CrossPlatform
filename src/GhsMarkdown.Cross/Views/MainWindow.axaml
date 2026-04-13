@@ -52,9 +52,9 @@
       <Setter Property="Background" Value="{DynamicResource accent-dim}" />
       <Setter Property="TextElement.Foreground" Value="{DynamicResource accent}" />
     </Style>
-    <Style Selector="Button.icon-rail-btn.active">
+    <!-- Background: ContentPresenter approach works correctly, keep it -->
+    <Style Selector="Button.icon-rail-btn.active /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource accent-dim}" />
-      <Setter Property="Foreground" Value="{DynamicResource accent}" />
     </Style>
 
     <!-- Focus Mode toggle -->
@@ -188,13 +188,15 @@
                 Command="{Binding NewFileCommand}"
                 Width="28" Height="28" Padding="0"
                 ToolTip.Tip="New File (Ctrl+N)">
-          <TextBlock Text="&#x1F5CB;" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Text="&#x271A;" FontSize="14"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
         <Button Classes="icon-rail-btn"
                 Command="{Binding OpenFileCommand}"
                 Width="28" Height="28" Padding="0"
                 ToolTip.Tip="Open File (Ctrl+O)">
-          <TextBlock Text="&#x1F5C1;" FontSize="14" HorizontalAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock Text="&#x2398;" FontSize="14"
+                     HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
         <Button Classes="icon-rail-btn"
                 Command="{Binding SaveFileCommand}"
@@ -314,14 +316,14 @@
                 Command="{Binding OpenExportCommand}"
                 Width="28" Height="28" Padding="0"
                 ToolTip.Tip="Export...">
-          <TextBlock Text="&#x2197;" FontSize="14" Foreground="{DynamicResource accent}"
+          <TextBlock Text="&#x2197;" FontSize="14"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
         <Button Classes="icon-rail-btn"
                 Command="{Binding PrintCommand}"
                 Width="28" Height="28" Padding="0"
                 ToolTip.Tip="Print (Ctrl+Shift+P)">
-          <TextBlock Text="&#x2399;" FontSize="14" Foreground="{DynamicResource accent}"
+          <TextBlock Text="&#x2399;" FontSize="14"
                      HorizontalAlignment="Center" VerticalAlignment="Center" />
         </Button>
       </StackPanel>
@@ -369,7 +371,8 @@
                     Command="{Binding ActivateIconCommand}"
                     CommandParameter="Topology"
                     ToolTip.Tip="Document Topology">
-              <TextBlock Text="⬡" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Text="⬡" FontSize="16"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
 
             <Button Classes="icon-rail-btn"
@@ -377,7 +380,8 @@
                     Command="{Binding ActivateIconCommand}"
                     CommandParameter="Files"
                     ToolTip.Tip="Files">
-              <TextBlock Text="⊞" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Text="⊞" FontSize="16"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
 
             <Button Classes="icon-rail-btn"
@@ -385,7 +389,8 @@
                     Command="{Binding ActivateIconCommand}"
                     CommandParameter="Snippets"
                     ToolTip.Tip="Snippet Studio">
-              <TextBlock Text="❮❯" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Text="❮❯" FontSize="12"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
 
             <Button Classes="icon-rail-btn"
@@ -393,7 +398,8 @@
                     Command="{Binding ActivateIconCommand}"
                     CommandParameter="Search"
                     ToolTip.Tip="Search">
-              <TextBlock Text="◎" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Text="◎" FontSize="16"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
 
           </StackPanel>
@@ -404,7 +410,8 @@
                     Command="{Binding ActivateIconCommand}"
                     CommandParameter="Settings"
                     ToolTip.Tip="Settings">
-              <TextBlock Text="⚙" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <TextBlock Text="⚙" FontSize="16"
+                         HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Button>
           </StackPanel>
 
@@ -510,8 +517,9 @@
 
       </Grid>
 
-      <!-- Col 3: Right Panel (collapsible, 200px when open) -->
+      <!-- Col 3: Right Panel (collapsible, drag-resizable when open) -->
       <Border Grid.Column="3"
+              x:Name="RightPanelBorder"
               Width="{Binding RightPanelWidth}"
               Background="{DynamicResource bg-panel}"
               BorderBrush="{DynamicResource border}"
@@ -522,49 +530,66 @@
             <DoubleTransition Property="Width" Duration="0:0:0.2" Easing="CubicEaseInOut" />
           </Transitions>
         </Border.Transitions>
-        <DockPanel>
-          <!-- Slot Switcher (36px, bottom) -->
-          <Border DockPanel.Dock="Bottom"
-                  Height="36"
-                  Background="{DynamicResource bg-toolbar}"
-                  BorderBrush="{DynamicResource border}"
-                  BorderThickness="0,1,0,0">
-            <Grid ColumnDefinitions="*,*,*">
-              <Button Grid.Column="0"
-                      Classes="icon-rail-btn"
-                      Classes.active="{Binding IsOutlineSlotActive}"
-                      Command="{Binding SwitchToOutlineCommand}"
-                      Height="36" Width="NaN"
-                      HorizontalAlignment="Stretch"
-                      ToolTip.Tip="Outline">
-                <TextBlock Text="OUTLINE" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Button>
-              <Button Grid.Column="1"
-                      Classes="icon-rail-btn"
-                      Classes.active="{Binding IsSnippetsSlotActive}"
-                      Command="{Binding SwitchToSnippetsCommand}"
-                      Height="36" Width="NaN"
-                      HorizontalAlignment="Stretch"
-                      ToolTip.Tip="Snippets">
-                <TextBlock Text="SNIPPETS" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Button>
-              <Button Grid.Column="2"
-                      Classes="icon-rail-btn"
-                      Classes.active="{Binding IsAiAssistSlotActive}"
-                      Command="{Binding SwitchToAiAssistCommand}"
-                      Height="36" Width="NaN"
-                      HorizontalAlignment="Stretch"
-                      ToolTip.Tip="AI Assist">
-                <TextBlock Text="AI ASSIST" FontSize="9" HorizontalAlignment="Center" VerticalAlignment="Center" />
-              </Button>
-            </Grid>
-          </Border>
 
-          <!-- Slot content (fills remaining space) -->
-          <ContentControl x:Name="RightPanelSlot"
-                          HorizontalContentAlignment="Stretch"
-                          VerticalContentAlignment="Stretch" />
-        </DockPanel>
+        <Grid ColumnDefinitions="6,*">
+
+          <!-- Drag handle (left edge of right panel) -->
+          <Border Grid.Column="0"
+                  x:Name="RightPanelDivider"
+                  Background="{DynamicResource bg-gutter}"
+                  BorderBrush="{DynamicResource border-subtle}"
+                  BorderThickness="0,0,1,0"
+                  Cursor="SizeWestEast" />
+
+          <!-- Panel content -->
+          <DockPanel Grid.Column="1">
+            <!-- Slot Switcher (36px, bottom) -->
+            <Border DockPanel.Dock="Bottom"
+                    Height="36"
+                    Background="{DynamicResource bg-toolbar}"
+                    BorderBrush="{DynamicResource border}"
+                    BorderThickness="0,1,0,0">
+              <Grid ColumnDefinitions="*,*,*">
+                <Button Grid.Column="0"
+                        Classes="icon-rail-btn"
+                        Classes.active="{Binding IsOutlineSlotActive}"
+                        Command="{Binding SwitchToOutlineCommand}"
+                        Height="36" Width="NaN"
+                        HorizontalAlignment="Stretch"
+                        ToolTip.Tip="Outline">
+                  <TextBlock Text="OUTLINE" FontSize="9"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+                <Button Grid.Column="1"
+                        Classes="icon-rail-btn"
+                        Classes.active="{Binding IsSnippetsSlotActive}"
+                        Command="{Binding SwitchToSnippetsCommand}"
+                        Height="36" Width="NaN"
+                        HorizontalAlignment="Stretch"
+                        ToolTip.Tip="Snippets">
+                  <TextBlock Text="SNIPPETS" FontSize="9"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+                <Button Grid.Column="2"
+                        Classes="icon-rail-btn"
+                        Classes.active="{Binding IsAiAssistSlotActive}"
+                        Command="{Binding SwitchToAiAssistCommand}"
+                        Height="36" Width="NaN"
+                        HorizontalAlignment="Stretch"
+                        ToolTip.Tip="AI Assist">
+                  <TextBlock Text="AI ASSIST" FontSize="9"
+                             HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+              </Grid>
+            </Border>
+
+            <!-- Slot content (fills remaining space) -->
+            <ContentControl x:Name="RightPanelSlot"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch" />
+          </DockPanel>
+
+        </Grid>
       </Border>
 
       <!-- Col 4: Pull Tab (10px × 44px strip) -->

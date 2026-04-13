@@ -1,3 +1,4 @@
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 
 namespace GhsMarkdown.Cross.Services;
@@ -78,7 +79,8 @@ public class SourceMappingService
         foreach (var block in container)
         {
             if (block is ParagraphBlock or HeadingBlock or ListItemBlock
-                      or QuoteBlock    or FencedCodeBlock or CodeBlock)
+                      or QuoteBlock    or FencedCodeBlock or CodeBlock
+                      or Table)
             {
                 var startLine = block.Line + 1;                                 // 1-based
                 var endLine   = OffsetToLine(block.Span.End, lineStarts) + 1;   // 1-based

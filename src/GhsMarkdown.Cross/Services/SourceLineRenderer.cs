@@ -1,4 +1,5 @@
 using Markdig;
+using Markdig.Extensions.Tables;
 using Markdig.Renderers.Html;
 using Markdig.Syntax;
 
@@ -43,7 +44,8 @@ public static class SourceLineRenderer
                      or ListItemBlock
                      or QuoteBlock
                      or FencedCodeBlock
-                     or CodeBlock)
+                     or CodeBlock
+                     or Table)
             {
                 var startLine = block.Line + 1;                              // 1-based
                 var endLine   = OffsetToLine(block.Span.End, lineStarts) + 1; // 1-based

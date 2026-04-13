@@ -2,7 +2,7 @@
 > Living specification for the GHS Markdown Editor Avalonia app.
 > All phases must be fully verified against acceptance criteria before the next phase begins.
 > This document is the single source of truth. CC prompts are derived from it.
-> Version: 2.3 — BL-07 through BL-23 completed. See backlog table for full status.
+> Version: 2.9 — BL-24 through BL-29 completed. All planned backlog items complete.
 
 mike
 
@@ -118,6 +118,8 @@ Default slot occupant: **Document Outline**
 Swappable to: Snippet Studio, AI Assist, References, Settings.
 Triggered by: slim pull tab on the right edge of the preview pane (10px × 44px, rounded left corners).
 Slides in from the right, pushing the preview pane.
+- Left edge has a 6px drag handle for width resizing. Width persisted to settings
+  (default 200px, minimum 150px, maximum half window width).
 
 ### Status Bar (26px, always visible)
 Left to right: cursor position, word count, filename, theme badge, | (spacer) | Version Timeline scrubber.
@@ -148,7 +150,10 @@ Left to right: cursor position, word count, filename, theme badge, | (spacer) | 
 
 ### F-03 — Split View
 - Side-by-side editor and preview with Smart Gutter between.
-- Synchronized scroll: editor scrolling moves preview proportionally and vice versa.
+- Synchronized scroll: anchor-based sync — editor scroll finds the nearest mapped
+  block and calls scrollIntoView on the preview; preview scroll reports the topmost
+  visible data-source-line element as an anchor and scrolls the editor to that line.
+  Proportional fallback applies when no anchors exist in the visible area.
 - Draggable gutter to adjust split ratio (persisted to user settings).
 - Three view modes: Edit only, Split (default), Preview only.
 
@@ -692,6 +697,8 @@ NOTES.md Post-Phase-7 Bug Fix Sessions for full details.
 
 **Modified files (8):**
 - `Models/AppSettings.cs` — added `EditorFontFamily`, `EditorFontSize`, `AutoSaveIntervalSeconds`, `SnippetLibraryPath`, `RecentFiles` fields
+- RightPanelOpenWidth (double, default 200.0) — persisted drag width of right panel
+- LeftPanelOpen default changed to false — panel closed on first run
 - `Services/FileService.cs` — implemented `GetRecentFiles()`, `AddToRecent()` (max 20, deduplicated), `WriteDraft()`, `DeleteDraft()`, `GetDraftPath()`; added `RecentFilesChanged` event; added `DraftFound` event with `_skipDraftCheck` guard flag; added `FileSaved` event call on SaveFile/SaveFileAs
 - `ViewModels/MainWindowViewModel.cs` — added `EditorFontFamily`, `EditorFontSize`, `AutoSaveIntervalSeconds`, `SnippetLibraryPath` properties with immediate apply + persist; added `ShortcutCommands` for keyboard reference; draft timer wired; DraftFound handler wired; updated view mode command shortcuts
 - `App.axaml` — added DataTemplate for `FileBrowserViewModel`
@@ -768,6 +775,27 @@ NOTES.md Post-Phase-7 Bug Fix Sessions for full details.
 | BL-21 | Light theme italic visibility | Light theme italic visibility — italic text in the editor is too light/faint in GHS Light theme. The DocumentColorizingTransformer uses #D0D0D0 for italic foreground which is near-invisible on the light (#F9F6F0) editor background. Fix: in MarkdownColorizingTransformer.cs, make italic foreground theme-aware — use a darker color (#555555 or similar) when the light theme is active, and the existing #D0D0D0 for dark theme. | ✅ Complete |
 | BL-22 | Right panel pull tab | Right panel pull tab — improve discoverability. Replace the plain 10px strip with a visible arrow indicator: show > (chevron right) when the panel is closed to suggest "expand", and < (chevron left) when open to suggest "collapse". The chevron should be centered vertically on the tab and styled with the accent color. | ✅ Complete |
 | BL-23 | Custom theme — Reset to Light Mode button | Custom theme — Reset to Light Mode button. The custom theme editor currently has one "Reset to Defaults" button which resets to GHS Dark baseline values. Add a second button "Reset to Light" that resets all 10 custom color tokens to the GHS Light theme values instead. This lets users start customizing from either the dark or light baseline. | ✅ Complete |
+| BL-24 | Custom theme — Reset to Light bug fix | "Reset to Light" does not reset all color tokens correctly — some tokens retain GHS Dark values after reset. Fix the token map used in the Reset to Light handler so all 10 UI chrome tokens are set to their correct GHS Light baseline values. Bundle with BL-25. | ✅ Complete |
+| BL-25 | Custom theme — user-configurable Markdown syntax colors | Extend the GHS Custom theme editor (only visible when GHS Custom is active) to include a second section for Markdown syntax colors. Color pickers for: H1, H2, H3, H4, H5, H6, Bold/Italic, Inline Code, Code Block, Blockquote. These tokens feed into both `MarkdownColorizingTransformer` (editor) and `ThemeService.GetThemeCss()` (preview). "Reset to Dark" and "Reset to Light" buttons must reset syntax color tokens alongside UI chrome tokens. Persist syntax color tokens in `AppSettings.CustomThemeColors` dictionary alongside existing chrome tokens. Bundle with BL-24. | ✅ Complete |
+| BL-26 | Click-to-sync broken inside tables | Clicking on table cells (td, th, tr) in the preview does not sync the editor cursor. Root cause: the JS click listener's `e.target.closest('[data-source-line]')` finds the cell/row element rather than walking up to the parent `table` which holds the `data-source-line` attribute — or table blocks were not included in `SourceLineRenderer`. Fix: ensure `SourceLineRenderer` injects `data-source-line` on `<table>` elements, and update the JS click handler to walk up the DOM past `td`/`th`/`tr` to find the nearest `[data-source-line]` ancestor. Verify that `InlineEditWindow.TryOpen` also handles `table` tag correctly for double-click inline edit. | ✅ Complete |
+| BL-27 | Draggable right panel divider | The right panel slot (AI Assist, Outline, Snippets) is fixed at 200px. Add a draggable divider on the left edge of the right panel — same interaction pattern as the Smart Gutter between editor and preview. Drag left to make the panel wider (pushing the preview pane), drag right to make it narrower. Minimum panel width: 160px. Maximum: 480px. Show `SizeWestEast` cursor on hover. Persist right panel width to `AppSettings` (new field: `RightPanelWidth`, default 200). Left panel slot width remains fixed at 220px — only the right panel is resizable. | ✅ Complete |
+| BL-28 | Icon rail — first two icons wrong color | The first two icons in the icon rail (New File and Open File) render at a different color/opacity than the remaining icons in both GHS Dark and GHS Light themes. Root cause: likely hardcoded color value or different brush resource on those two icons instead of the shared icon color token. Fix: audit all icon rail icon definitions and ensure every icon uses the same brush resource (theme-aware, driven by the active theme's icon foreground token). Verify in both GHS Dark and GHS Light. | ✅ Complete |
+| BL-29 | Scroll sync drift on long/complex documents | Proportional scroll sync (editor scroll fraction → preview scroll fraction) drifts significantly on long or table-heavy documents. Root cause: the editor and preview have different total scroll heights — a document with many tables renders much taller in the preview than the raw Markdown height in the editor, so the same scroll fraction maps to different visual positions. Fix: replace proportional scroll sync with anchor-based sync — on editor scroll, resolve the visible cursor/viewport line via `SourceMappingService`, find the corresponding `data-source-line` element in the preview, and scroll that element into view. This is more accurate than fraction-based sync and degrades gracefully when no mapping exists (falls back to proportional). Related to BL-26 (table source mapping). | ✅ Complete |
+
+---
+
+## Completed Bundles
+
+**Bundle A — BL-24 + BL-25 (complete):**
+Fixed "Reset to Light" not resetting all color tokens (bg-gutter missing from
+CustomColors dict and reset methods), AND extended GHS Custom theme editor with
+10 Markdown syntax color pickers. Both feed into MarkdownColorizingTransformer
+and ThemeService.GetCustomCss(). See NOTES.md.
+
+**Bundle B — BL-26 + BL-29 (complete):**
+Fixed click-to-sync broken inside tables (Table type added to SourceLineRenderer
+and SourceMappingService pattern matches), AND replaced proportional scroll sync
+with anchor-based sync. See NOTES.md.
 
 ---
 
@@ -837,6 +865,12 @@ GhsMarkdown.Cross/
 - Raises `ThemeChanged` event — consumers call `GetThemeCss()` on change and inject themselves
 - No dependency on any WebView type
 - Scaffolded: Phase 1
+
+CustomColors dictionary includes bg-gutter and 10 Markdown syntax color keys
+(syntax-h1 through syntax-h6, syntax-bold, syntax-italic, syntax-code,
+syntax-blockquote) as of BL-24/BL-25. All are user-configurable via Settings
+when GHS Custom theme is active. GetCustomCss() reads all syntax vars from
+CustomThemeColors; GetDarkCss() and GetLightCss() use hardcoded values.
 
 **MarkdownParsingService**
 - `ParsedDocument` (observable — `MarkdownDocument`)
@@ -931,7 +965,14 @@ Multiple features require bidirectional mapping between Markdown source position
 
 **Approach: `data-source-line` attributes via Markdig renderer extension**
 
-1. A custom Markdig renderer extension (`SourceLineRenderer`) walks the AST and injects `data-source-line="{startLine}"` and `data-source-end="{endLine}"` attributes onto every block-level HTML element (`p`, `h1`–`h6`, `li`, `blockquote`, `pre`). Uses Markdig's `SourceSpan` property on all `Block` nodes.
+1. A custom Markdig renderer extension (`SourceLineRenderer`) walks the AST and injects `data-source-line="{startLine}"` and `data-source-end="{endLine}"` attributes onto every block-level HTML element (`p`, `h1`–`h6`, `li`, `blockquote`, `pre`, `table`). Uses Markdig's `SourceSpan` property on all `Block` nodes.
+
+**Markdig API note:** The table block type in Markdig 0.44.0 is
+`Markdig.Extensions.Tables.Table` (not `TableBlock`). Both
+`SourceLineRenderer` and `SourceMappingService` use `Table` in their
+pattern matches. Attributes are injected on the `Table` element only —
+not on rows or cells — so clicking any cell bubbles to the table's
+`data-source-line` via JS `closest()`.
 
 2. `SourceMappingService` maintains a `Dictionary<int, string>` mapping source line numbers to HTML element selectors. Rebuilt on each `ParsedDocument` update.
 
@@ -982,6 +1023,6 @@ A phase is done when:
 
 ---
 
-*Version: 2.3*
+*Version: 2.9*
 *Phase 1 through Phase 9 — ✅ COMPLETE. Phase 10 — not started.*
-*Last updated: BL-07, BL-17, BL-17b, BL-20, BL-21, BL-22, BL-23 completed and documented.*
+*Last updated: BL-24 through BL-29 complete. All planned backlog items resolved.*

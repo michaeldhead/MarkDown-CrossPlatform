@@ -161,6 +161,83 @@
                        HorizontalAlignment="Left" />
         </Grid>
 
+        <!-- Syntax colors separator -->
+        <Border Background="{DynamicResource border-subtle}" Height="1" Margin="0,8,0,4" />
+        <TextBlock Text="MARKDOWN SYNTAX COLORS"
+                   FontSize="10" FontWeight="Bold"
+                   Foreground="{DynamicResource text-hint}"
+                   Margin="0,0,0,4" />
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H1 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h1"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H2 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h2"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H3 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h3"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H4 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h4"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H5 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h5"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="H6 Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-h6"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Bold Text" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-bold"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Italic Text" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-italic"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Code Color" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-code"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
+        <Grid ColumnDefinitions="120,*" Margin="0,2">
+          <TextBlock Grid.Column="0" Text="Blockquote" FontSize="11"
+                     Foreground="{DynamicResource text-secondary}" VerticalAlignment="Center" />
+          <ColorPicker Grid.Column="1" Tag="syntax-blockquote"
+                       ColorChanged="OnColorPickerChanged" HorizontalAlignment="Left" />
+        </Grid>
+
         <!-- Reset buttons -->
         <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
           <Button Command="{Binding ResetCustomThemeCommand}"

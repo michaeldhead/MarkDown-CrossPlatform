@@ -16,7 +16,7 @@ public record AppSettings
     public string SnippetLibraryPath     { get; init; } = "";
     public bool   FocusMode             { get; init; } = false;
     public bool   ShowFormattingToolbar { get; init; } = true;
-    public bool   LeftPanelOpen         { get; init; } = true;
+    public bool   LeftPanelOpen         { get; init; } = false;
     public string ActiveIcon            { get; init; } = "Topology";
     public bool   WordWrap             { get; init; } = false;
     public bool   ShowLineNumbers      { get; init; } = true;
@@ -30,6 +30,9 @@ public record AppSettings
     public double DetachedPreviewY      { get; init; } = 100;
     public double DetachedPreviewWidth  { get; init; } = 800;
     public double DetachedPreviewHeight { get; init; } = 600;
+
+    // BL-27: Right panel open width (drag-adjustable)
+    public double RightPanelOpenWidth   { get; init; } = 200.0;
 }
 
 public class SettingsService
