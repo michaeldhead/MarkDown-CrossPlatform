@@ -93,5 +93,7 @@ public partial class TabViewModel : ObservableObject
             if (pe.PropertyName == nameof(ViewModels.EditorViewModel.DocumentText))
                 OnPropertyChanged(nameof(IsDirty));
         };
+        FileService.FileSaved += (_, _) =>
+            OnPropertyChanged(nameof(IsDirty));
     }
 }
