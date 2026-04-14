@@ -47,8 +47,8 @@ public partial class SectionBalanceBar : ObservableObject
 
 public partial class TopologyViewModel : ViewModelBase
 {
-    private readonly MarkdownParsingService _parsingService;
-    private readonly EditorViewModel _editorVm;
+    private MarkdownParsingService _parsingService;
+    private EditorViewModel _editorVm;
 
     public ObservableCollection<TopologyNodeViewModel> Nodes { get; } = new();
     public ObservableCollection<SectionBalanceBar> BalanceBars { get; } = new();
@@ -67,19 +67,35 @@ public partial class TopologyViewModel : ViewModelBase
         _parsingService = parsingService;
         _editorVm = editorVm;
 
-        // Subscribe to ParsedDocument changes → debounced rebuild
-        _parsingService.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument))
-                ScheduleRebuild();
-        };
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged += OnEditorVmPropertyChanged;
+    }
 
-        // Subscribe to caret line changes → debounced active node update
-        _editorVm.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(EditorViewModel.CaretLine))
-                ScheduleActiveNodeUpdate(_editorVm.CaretLine);
-        };
+    private void OnParsingServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument))
+            ScheduleRebuild();
+    }
+
+    private void OnEditorVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.CaretLine))
+            ScheduleActiveNodeUpdate(_editorVm.CaretLine);
+    }
+
+    public void RewireParsingService(MarkdownParsingService newService, EditorViewModel newEditorVm)
+    {
+        _parsingService.PropertyChanged -= OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged -= OnEditorVmPropertyChanged;
+
+        _parsingService = newService;
+        _editorVm = newEditorVm;
+
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged += OnEditorVmPropertyChanged;
+
+        // Trigger immediate rebuild from new service's current document
+        ScheduleRebuild();
     }
 
     [RelayCommand]

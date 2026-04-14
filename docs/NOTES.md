@@ -379,7 +379,7 @@ dotnet publish GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj 
 
 ### Inno Setup installer (Windows)
 Open `installer/windows/setup.iss` in Inno Setup IDE and press Ctrl+F9.
-Output: `installer/windows/output/GHSMarkdownEditor-Setup-1.0.0.exe`
+Output: `installer/windows/output/GHSMarkdownEditor-Setup-1.1.0.exe`
 
 ---
 
@@ -441,12 +441,6 @@ called at the end of `InitializeEditor()`.
 - `FileService.PropertyChanged` (CurrentFilePath) — on file open
 - `FileService.FileSaved` — on manual save
 - Initial call in `InitializeEditor()` for files open at startup
-
-### Use case note
-This feature is designed for writers and developers who version their documents
-in git. A markdown file in a git repo will show line-level change indicators
-identical to VS Code's gutter. Files outside a git repo show no margin — silent
-and non-intrusive.
 
 ---
 
@@ -797,3 +791,162 @@ triggered a save after the panel toggle.
   `AppSettings` initializer in `SaveSettings()`.
 - Changed `LeftPanelOpen` default in `AppSettings` from `true` to `false` — left panel
   now defaults to closed on first run.
+
+---
+
+## BL-04/13 — Tab-Based Multi-File Editing (v1.1.0)
+
+Implemented across five phases. This is the largest feature since Phase 1.
+
+### Architecture
+
+```
+MainWindowViewModel
+  ├── ObservableCollection<TabViewModel> Tabs
+  ├── TabViewModel ActiveTab
+  └── all editor/preview bindings route through ActiveTab
+
+TabViewModel (per-tab, owns):
+  ├── EditorViewModel
+  ├── PreviewViewModel
+  ├── FileService
+  ├── MarkdownParsingService
+  └── SourceMappingService
+
+Shared singletons (unchanged):
+  ThemeService, SettingsService, SnippetService, CommandRegistry,
+  SnapshotService, AiAssistViewModel, TopologyViewModel, OutlineViewModel
+```
+
+### T1 — TabViewModel data model
+
+**DI pre-construction pattern:** Five per-tab services were previously registered as
+DI singletons. Seven other singletons (TopologyViewModel, OutlineViewModel, etc.)
+depended on them via constructor injection. To avoid circular dependencies, per-tab
+services are pre-constructed manually in `App.axaml.cs` before the DI container is
+built, then registered as instance singletons so dependent singletons share the same
+initial-tab instances. New tabs construct fresh instances outside DI entirely.
+
+`EditorViewModel` takes `MarkdownParsingService` as a constructor parameter — it is
+not parameterless. `PreviewViewModel` takes both `MarkdownParsingService` and
+`ThemeService`. Both `TabViewModel` constructors must pass `ThemeService` as a shared
+singleton parameter.
+
+**AppSettings additions:**
+- `OpenTabPaths` (List<string?>) — null entries represent untitled tabs
+- `ActiveTabIndex` (int)
+- `MaxRestoredTabs` (int, default 10)
+
+### T2 — Tab strip UI and switching
+
+**Titlebar restructure:** `ColumnDefinitions="*,Auto,*"` (centered title) replaced
+with `ColumnDefinitions="Auto,*,Auto"` — app name fixed left, tab strip in center,
+controls fixed right. The window `Title` property still binds to `WindowTitle` for
+the OS taskbar.
+
+**Tab item:** each tab shows filename (or "Untitled"), a blue dirty dot when unsaved,
+and a close button (×). Active tab has a 3px accent underline. Tabs are in a
+horizontally-scrolling `ItemsControl`. New tab (+) button at the right of the strip.
+
+**Key bindings:** Ctrl+T (new tab), Ctrl+W (close active tab), Ctrl+Tab (next tab).
+
+**SwitchActiveTab:** four anonymous event handlers extracted to named methods
+(`OnEditorVmPropertyChanged`, `OnPreviewVmPropertyChanged`,
+`OnFileServicePropertyChanged`, `OnFileSaved`) for unsub/resub on every tab switch.
+
+### T2B — Editor scroll isolation (7-round debug session)
+
+Critical findings from debug instrumentation — all required for correct behavior:
+
+1. **`ScrollToVerticalOffset()` has no effect after `Document.Text` replacement.**
+   The ScrollViewer ignores it during pending layout. Fix: use
+   `((IScrollable)textView).Offset = new Vector(x, y)` which bypasses the
+   ScrollViewer's deferred update.
+
+2. **Setting caret outside viewport triggers `BringCaretToView` which overrides scroll.**
+   After document replacement, AvaloniaEdit may place the caret at the document end.
+   Fix: compute first visible line at target scroll offset; set caret there.
+
+3. **WebView scroll sync + `scrollIntoView` in `UpdateActiveBlockHighlight` override
+   editor scroll after the restore.** Fix: `_tabSwitchInProgress` flag (500ms window)
+   blocks `HandleScrollSync`, `OnEditorScrollChanged`, `UpdateActiveBlockHighlight`,
+   and the `OnWebViewMessage` scroll case during the transition.
+
+4. **Duplicate `OnPropertyChanged(nameof(ActiveTab))` caused `SwitchActiveTab` to fire
+   twice.** `SetProperty` already fires `PropertyChanged` — the redundant manual call
+   was removed.
+
+5. **`_previousActiveTab` was already updated to `newTab` by the time `SwitchActiveTab`
+   ran** (`ActiveTab` setter fires before the handler). Fix: capture
+   `outgoingTab = _previousActiveTab` at the very top of `SwitchActiveTab` before any
+   updates.
+
+**`SuppressMakeVisible` on `CenteringTextView`:** Added to block AvaloniaEdit's
+internal `MakeVisible` call (which fires during document replacement via layout pass).
+Set before `Document.Text` assignment, cleared inside the `DispatcherPriority.Loaded`
+post after scroll restore completes.
+
+**Per-tab scroll state fields on `TabViewModel`:** `SavedScrollY`, `SavedAnchorLine`,
+`SavedEditorScrollY`, `SavedCaretLine` — all saved from the outgoing tab and restored
+to the incoming tab during `SwitchActiveTab`.
+
+### T3 — Per-tab isolation
+
+**TopologyViewModel and OutlineViewModel** subscribed to the initial tab's
+`MarkdownParsingService` at DI construction. `RewireParsingService()` method added to
+both. Called from `NotifyTabActivated()` in `MainWindowViewModel` on every tab switch.
+
+**Per-tab FileService subscriptions** (window title, timeline reload, snapshot-on-save,
+draft-delete-on-save, gutter green dots) were anonymous lambdas wired to the initial
+tab only. All extracted to named methods and re-wired via `NotifyTabActivated()`.
+
+**Gutter sync state reset:** `GutterSyncState` is global. On tab switch it is reset to
+`Synced` so each tab starts with a clean blue state — the previous tab's saved/drifted
+state does not bleed across.
+
+**DraftFound wiring:** `DraftFound` event was only wired to the initial tab's
+`FileService`. Fixed by wiring/unwiring in `SwitchActiveTab` alongside the other
+per-tab handlers. `OnDraftFound` uses `sender as FileService` to identify which tab
+fired the event and operates on that tab's editor — correct regardless of which tab is
+active when the async dialog returns.
+
+### T4 — Singleton enforcement + IPC
+
+**Named mutex** (`Global\GHSMarkdownEditor`) in `Program.cs` detects whether a
+primary instance is already running. Second instance sends `.md` file paths over a
+named pipe (`\\.\pipe\GHSMarkdownEditor`) using a simple line-per-path protocol (empty
+line = terminator), then exits. 500ms connect timeout — graceful fallback to opening
+normally if the pipe fails.
+
+**Pipe server** runs as a background `Task` in `App.axaml.cs`. Loops forever accepting
+one connection at a time (`maxNumberOfServerInstances: 1`). On receipt, marshals to UI
+thread, activates the main window, and opens each path in a new tab (or reuses the
+active tab if it is empty/untitled).
+
+**Mutex lifetime:** kept alive by `GC.KeepAlive(mutex)` in `Program.Main` — prevents
+garbage collection for the process lifetime.
+
+**macOS:** stubbed with `// TODO: BL-11 macOS IPC (NSRunningApplication + Apple Events)`.
+
+### T5 — Tab persistence + close protection
+
+**Persistence:** `SaveSettings()` already wrote `OpenTabPaths` and `ActiveTabIndex`.
+`OnActiveTabFilePathChanged` was missing a `SaveSettings()` call — paths were not saved
+when files were opened. Fixed. A `ForceSaveSettings()` call was added to the window
+`Closing` handler to flush final state.
+
+**Restore:** `RestoreTabsAsync()` in `MainWindowViewModel` — opens the first saved path
+in the existing initial tab, opens remaining paths in new tabs up to `MaxRestoredTabs`,
+then sets the active tab by path-matching. Called from `App.axaml.cs` at
+`DispatcherPriority.Loaded`. Untitled (null) entries and missing files are silently
+skipped.
+
+**CLI arg sequencing:** The CLI arg handler was incorrectly suppressed when a session
+restore was pending. Fix: CLI arg always runs at `DispatcherPriority.Background` (after
+`Loaded`), so it fires after restore. If the active tab is occupied, a new tab is
+opened for the CLI arg file.
+
+**Close protection:** Window `Closing` handler iterates dirty tabs in order, shows a
+Save/Don't Save/Cancel dialog for each (with `ShowCloseUnsavedDialog` in `App.axaml.cs`),
+then closes. `_closingConfirmed` bool prevents the re-entrant `Closing` event (fired by
+the programmatic `Close()` call) from re-showing dialogs.
