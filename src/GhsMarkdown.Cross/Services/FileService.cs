@@ -230,6 +230,10 @@ public partial class FileService : ObservableObject
             ?.MainWindow;
     }
 
+    /// <summary>Shows the Save/Discard/Cancel dialog. Called by tab close logic.</summary>
+    public static Task<UnsavedAction> PromptUnsavedChangesAsync()
+        => ShowUnsavedChangesDialogAsync();
+
     private static async Task<UnsavedAction> ShowUnsavedChangesDialogAsync()
     {
         var owner = GetMainWindow();

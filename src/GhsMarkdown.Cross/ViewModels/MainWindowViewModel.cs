@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,7 +13,6 @@ public enum GutterSyncState { Synced, Drifted, Saved }
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly ThemeService    _themeService;
-    private readonly FileService     _fileService;
     private readonly SettingsService _settingsService;
     private readonly CommandRegistry _commandRegistry;
     private readonly TopologyViewModel _topologyVm;
@@ -20,12 +20,29 @@ public partial class MainWindowViewModel : ObservableObject
     private readonly SnippetStudioViewModel _snippetStudioVm;
     private readonly AiAssistViewModel _aiAssistVm;
     private readonly SnapshotService _snapshotService;
-    private readonly EditorViewModel _editorVm;
     private readonly FileBrowserViewModel _fileBrowserVm;
     private readonly SnippetService _snippetService;
     private System.Threading.Timer? _snapshotTimer;
     private System.Threading.Timer? _draftTimer;
     private ViewMode? _viewModeBeforeExport;
+
+    // --- Tabs ---------------------------------------------------------------
+
+    public ObservableCollection<TabViewModel> Tabs { get; } = new();
+
+    private TabViewModel _activeTab = null!;
+    public TabViewModel ActiveTab
+    {
+        get => _activeTab;
+        private set
+        {
+            if (SetProperty(ref _activeTab, value))
+            {
+                foreach (var t in Tabs)
+                    t.IsActive = t == value;
+            }
+        }
+    }
 
     // ─── Icon rail ───────────────────────────────────────────────────────────
 
@@ -440,13 +457,17 @@ public partial class MainWindowViewModel : ObservableObject
 
     // ─── File state (exposed for status bar / title) ─────────────────────────
 
-    public FileService FileService => _fileService;
+    public FileService FileService => ActiveTab.FileService;
+
+    public bool HasUnsavedTabs => Tabs.Any(t => t.IsDirty);
+
+    public IReadOnlyList<TabViewModel> GetDirtyTabs() =>
+        Tabs.Where(t => t.IsDirty).ToList();
 
     // ─── Constructor ─────────────────────────────────────────────────────────
 
     public MainWindowViewModel(
         ThemeService themeService,
-        FileService fileService,
         SettingsService settingsService,
         CommandRegistry commandRegistry,
         TopologyViewModel topologyVm,
@@ -456,13 +477,11 @@ public partial class MainWindowViewModel : ObservableObject
         CommandPaletteViewModel commandPalette,
         SnapshotService snapshotService,
         TimelineViewModel timelineVm,
-        EditorViewModel editorVm,
         ExportPanelViewModel exportPanel,
         FileBrowserViewModel fileBrowserVm,
         SnippetService snippetService)
     {
         _themeService    = themeService;
-        _fileService     = fileService;
         _settingsService = settingsService;
         _commandRegistry = commandRegistry;
         _topologyVm      = topologyVm;
@@ -470,12 +489,22 @@ public partial class MainWindowViewModel : ObservableObject
         _snippetStudioVm = snippetStudioVm;
         _aiAssistVm      = aiAssistVm;
         _snapshotService = snapshotService;
-        _editorVm        = editorVm;
         _fileBrowserVm   = fileBrowserVm;
         _snippetService  = snippetService;
         CommandPalette   = commandPalette;
         Timeline         = timelineVm;
         ExportPanel      = exportPanel;
+
+        // Wrap the initial tab's per-tab services (pre-constructed and registered
+        // as instances in App.axaml.cs so dependent singletons share them).
+        var initialTab = new TabViewModel(
+            (EditorViewModel)App.Services.GetService(typeof(EditorViewModel))!,
+            (PreviewViewModel)App.Services.GetService(typeof(PreviewViewModel))!,
+            (FileService)App.Services.GetService(typeof(FileService))!,
+            (MarkdownParsingService)App.Services.GetService(typeof(MarkdownParsingService))!,
+            (SourceMappingService)App.Services.GetService(typeof(SourceMappingService))!);
+        Tabs.Add(initialTab);
+        ActiveTab = initialTab;
         PrintCommand     = new RelayCommand(() => _printAction?.Invoke());
         DetachPreviewCommand = new RelayCommand(() => _detachPreviewAction?.Invoke());
         ToggleFocusModeCommand = new RelayCommand(() =>
@@ -618,59 +647,31 @@ public partial class MainWindowViewModel : ObservableObject
             OnPropertyChanged(nameof(IsThemeAuto));
         };
 
-        _fileService.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(FileService.CurrentFilePath))
-                UpdateWindowTitle();
-        };
+        // Wire per-tab FileService subscriptions (named methods for unsub/resub)
+        ActiveTab.FileService.PropertyChanged += OnActiveTabFilePathChanged;
+        ActiveTab.FileService.PropertyChanged += OnActiveTabFilePathChangedForTimeline;
+        ActiveTab.FileService.FileSaved       += OnFileSaved;
+        ActiveTab.FileService.FileSaved       += OnActiveTabFileSavedForSnapshot;
+        ActiveTab.FileService.FileSaved       += OnActiveTabFileSavedDeleteDraft;
 
-        _fileService.FileSaved += OnFileSaved;
-
-        // Snapshot on manual save + reload timeline
-        _fileService.FileSaved += async (_, _) =>
-        {
-            var path = _fileService.CurrentFilePath;
-            var content = _editorVm.DocumentText;
-            if (!string.IsNullOrEmpty(path))
-            {
-                await _snapshotService.SaveSnapshot(path, content);
-                await Timeline.ReloadSnapshots(path);
-            }
-        };
-
-        // Reload timeline on file open/new
-        _fileService.PropertyChanged += async (_, pe) =>
-        {
-            if (pe.PropertyName == nameof(FileService.CurrentFilePath))
-                await Timeline.ReloadSnapshots(_fileService.CurrentFilePath);
-        };
-
-        // Auto-save snapshot every 2 minutes
+        // Auto-save snapshot every 2 minutes (reads ActiveTab at fire time — correct for any tab)
         _snapshotTimer = new System.Threading.Timer(async _ =>
         {
-            var path = _fileService.CurrentFilePath;
-            var content = await Dispatcher.UIThread.InvokeAsync(() => _editorVm.DocumentText);
+            var path = ActiveTab.FileService.CurrentFilePath;
+            var content = await Dispatcher.UIThread.InvokeAsync(() => ActiveTab.EditorViewModel.DocumentText);
             if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(content))
                 await _snapshotService.SaveSnapshot(path, content);
         }, null, TimeSpan.FromMinutes(2), TimeSpan.FromMinutes(2));
 
-        // Draft auto-save timer
+        // Draft auto-save timer (reads ActiveTab at fire time — correct for any tab)
         var draftInterval = TimeSpan.FromSeconds(settings.AutoSaveIntervalSeconds);
         _draftTimer = new System.Threading.Timer(async _ =>
         {
-            var path = _fileService.CurrentFilePath;
-            var content = await Dispatcher.UIThread.InvokeAsync(() => _editorVm.DocumentText);
+            var path = ActiveTab.FileService.CurrentFilePath;
+            var content = await Dispatcher.UIThread.InvokeAsync(() => ActiveTab.EditorViewModel.DocumentText);
             if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(content))
-                _fileService.WriteDraft(path, content);
+                ActiveTab.FileService.WriteDraft(path, content);
         }, null, draftInterval, draftInterval);
-
-        // Delete draft on explicit save
-        _fileService.FileSaved += (_, _) =>
-        {
-            var p = _fileService.CurrentFilePath;
-            if (!string.IsNullOrEmpty(p))
-                _fileService.DeleteDraft(p);
-        };
 
         RegisterCommands();
     }
@@ -726,7 +727,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     private void UpdateWindowTitle()
     {
-        var path = _fileService.CurrentFilePath;
+        var path = ActiveTab.FileService.CurrentFilePath;
         var name = path is null ? "Untitled" : Path.GetFileName(path);
         WindowTitle = $"GHS Markdown Editor — {name}";
     }
@@ -758,6 +759,73 @@ public partial class MainWindowViewModel : ObservableObject
         }, token);
     }
 
+    // ─── Per-tab FileService handlers (named for unsub/resub on tab switch) ────
+
+    private void OnActiveTabFilePathChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileService.CurrentFilePath))
+        {
+            UpdateWindowTitle();
+            SaveSettings();
+        }
+    }
+
+    private async void OnActiveTabFilePathChangedForTimeline(
+        object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileService.CurrentFilePath))
+            await Timeline.ReloadSnapshots(ActiveTab.FileService.CurrentFilePath);
+    }
+
+    private async void OnActiveTabFileSavedForSnapshot(object? sender, EventArgs e)
+    {
+        var path    = ActiveTab.FileService.CurrentFilePath;
+        var content = ActiveTab.EditorViewModel.DocumentText;
+        if (!string.IsNullOrEmpty(path))
+        {
+            await _snapshotService.SaveSnapshot(path, content);
+            await Timeline.ReloadSnapshots(path);
+        }
+    }
+
+    private void OnActiveTabFileSavedDeleteDraft(object? sender, EventArgs e)
+    {
+        var p = ActiveTab.FileService.CurrentFilePath;
+        if (!string.IsNullOrEmpty(p))
+            ActiveTab.FileService.DeleteDraft(p);
+    }
+
+    /// <summary>
+    /// Called by code-behind after a tab switch completes. Re-wires all
+    /// ViewModel-level per-tab subscriptions to the newly active tab.
+    /// </summary>
+    public void NotifyTabActivated(TabViewModel outgoing, TabViewModel incoming)
+    {
+        // Unsubscribe from outgoing tab's FileService
+        outgoing.FileService.PropertyChanged -= OnActiveTabFilePathChanged;
+        outgoing.FileService.PropertyChanged -= OnActiveTabFilePathChangedForTimeline;
+        outgoing.FileService.FileSaved       -= OnFileSaved;
+        outgoing.FileService.FileSaved       -= OnActiveTabFileSavedForSnapshot;
+        outgoing.FileService.FileSaved       -= OnActiveTabFileSavedDeleteDraft;
+
+        // Subscribe to incoming tab's FileService
+        incoming.FileService.PropertyChanged += OnActiveTabFilePathChanged;
+        incoming.FileService.PropertyChanged += OnActiveTabFilePathChangedForTimeline;
+        incoming.FileService.FileSaved       += OnFileSaved;
+        incoming.FileService.FileSaved       += OnActiveTabFileSavedForSnapshot;
+        incoming.FileService.FileSaved       += OnActiveTabFileSavedDeleteDraft;
+
+        // Rewire Topology and Outline to incoming tab's services
+        _topologyVm.RewireParsingService(incoming.MarkdownParsingService, incoming.EditorViewModel);
+        _outlineVm.RewireParsingService(incoming.MarkdownParsingService, incoming.EditorViewModel);
+
+        // Reload timeline for the new tab's file
+        _ = Timeline.ReloadSnapshots(incoming.FileService.CurrentFilePath);
+
+        // Update window title
+        UpdateWindowTitleFromTab(incoming);
+    }
+
     // ─── Settings persistence ─────────────────────────────────────────────────
 
     private void SaveSettings()
@@ -771,16 +839,21 @@ public partial class MainWindowViewModel : ObservableObject
             EditorFontSize          = EditorFontSize,
             AutoSaveIntervalSeconds = AutoSaveIntervalSeconds,
             SnippetLibraryPath      = SnippetLibraryPath,
-            RecentFiles             = _fileService.GetRecentFiles().ToList(),
+            RecentFiles             = ActiveTab.FileService.GetRecentFiles().ToList(),
             CustomThemeColors       = new Dictionary<string, string>(CustomColors),
             RightPanelOpenWidth     = _rightPanelOpenWidth,
             LeftPanelOpen           = IsLeftPanelOpen,
-            ActiveIcon              = _activeIcon
+            ActiveIcon              = _activeIcon,
+            OpenTabPaths            = Tabs.Select(t => t.FileService.CurrentFilePath).ToList(),
+            ActiveTabIndex          = Tabs.IndexOf(ActiveTab),
         });
     }
 
     /// <summary>Called by code-behind after gutter drag ends.</summary>
     public void PersistSplitRatio() => SaveSettings();
+
+    /// <summary>Called on window close to flush current state to disk.</summary>
+    public void ForceSaveSettings() => SaveSettings();
 
     // ─── Icon rail commands ───────────────────────────────────────────────────
 
@@ -898,8 +971,112 @@ public partial class MainWindowViewModel : ObservableObject
 
     // ─── File commands ────────────────────────────────────────────────────────
 
-    [RelayCommand] private async Task NewFile()    => await _fileService.NewFile();
-    [RelayCommand] private async Task OpenFile()   => await _fileService.OpenFile();
-    [RelayCommand] private async Task SaveFile()   => await _fileService.SaveFile();
-    [RelayCommand] private async Task SaveFileAs() => await _fileService.SaveFileAs();
+    [RelayCommand] private async Task NewFile()    => await ActiveTab.FileService.NewFile();
+    [RelayCommand] private async Task OpenFile()   => await ActiveTab.FileService.OpenFile();
+    [RelayCommand] private async Task SaveFile()   => await ActiveTab.FileService.SaveFile();
+    [RelayCommand] private async Task SaveFileAs() => await ActiveTab.FileService.SaveFileAs();
+
+    // --- Tab commands -----------------------------------------------------------
+
+    [RelayCommand]
+    private void NewTab()
+    {
+        var tab = new TabViewModel(_settingsService, _themeService);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+    }
+
+    [RelayCommand]
+    private async Task CloseActiveTab() => await CloseTab(ActiveTab);
+
+    [RelayCommand]
+    private async Task CloseTab(TabViewModel tab)
+    {
+        if (tab.IsDirty)
+        {
+            var result = await FileService.PromptUnsavedChangesAsync();
+            if (result == UnsavedAction.Cancel) return;
+            if (result == UnsavedAction.Save)
+                await tab.FileService.SaveFile();
+        }
+
+        var idx = Tabs.IndexOf(tab);
+        Tabs.Remove(tab);
+
+        if (Tabs.Count == 0)
+        {
+            NewTab();
+            return;
+        }
+
+        var newIdx = Math.Max(0, Math.Min(idx, Tabs.Count - 1));
+        ActiveTab = Tabs[newIdx];
+    }
+
+    [RelayCommand]
+    private void NextTab()
+    {
+        if (Tabs.Count < 2) return;
+        var idx = Tabs.IndexOf(ActiveTab);
+        ActiveTab = Tabs[(idx + 1) % Tabs.Count];
+    }
+
+    [RelayCommand]
+    private void SwitchTab(TabViewModel tab)
+    {
+        if (tab == ActiveTab) return;
+        ActiveTab = tab;
+    }
+
+    public void UpdateWindowTitleFromTab(TabViewModel tab)
+    {
+        var path = tab.FileService.CurrentFilePath;
+        var name = path is null ? "Untitled" : Path.GetFileName(path);
+        WindowTitle = $"GHS Markdown Editor — {name}";
+    }
+
+    /// <summary>
+    /// Restores tabs from persisted paths. Called by App after DI container is
+    /// built and the window is shown. Silently skips missing files.
+    /// </summary>
+    public async Task RestoreTabsAsync(List<string?> paths, int activeIndex)
+    {
+        var validPaths = paths
+            .Where(p => p is not null && File.Exists(p))
+            .Select(p => p!)
+            .ToList();
+
+        if (validPaths.Count == 0)
+            return;
+
+        // Open the first path in the existing initial (untitled) tab
+        await ActiveTab.FileService.OpenFile(validPaths[0]);
+
+        // Open remaining paths each in a new tab
+        for (int i = 1; i < validPaths.Count; i++)
+        {
+            var settings = _settingsService.Load();
+            if (Tabs.Count >= settings.MaxRestoredTabs) break;
+
+            NewTabCommand.Execute(null);
+            await ActiveTab.FileService.OpenFile(validPaths[i]);
+        }
+
+        // Restore active tab index by matching path
+        var targetPath = activeIndex >= 0 && activeIndex < paths.Count
+            ? paths[activeIndex]
+            : null;
+
+        if (targetPath is not null)
+        {
+            var targetTab = Tabs.FirstOrDefault(
+                t => t.FileService.CurrentFilePath == targetPath);
+            if (targetTab is not null)
+                SwitchTabCommand.Execute(targetTab);
+        }
+        else if (Tabs.Count > 0)
+        {
+            SwitchTabCommand.Execute(Tabs[0]);
+        }
+    }
 }

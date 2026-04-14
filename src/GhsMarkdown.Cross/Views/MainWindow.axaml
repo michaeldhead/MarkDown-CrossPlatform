@@ -31,6 +31,9 @@
     <KeyBinding Gesture="Ctrl+Shift+O" Command="{Binding FormatOrderedListCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+G" Command="{Binding FormatTableCommand}" />
     <KeyBinding Gesture="Ctrl+Shift+I" Command="{Binding FormatImageCommand}" />
+    <KeyBinding Gesture="Ctrl+T" Command="{Binding NewTabCommand}" />
+    <KeyBinding Gesture="Ctrl+W" Command="{Binding CloseActiveTabCommand}" />
+    <KeyBinding Gesture="Ctrl+Tab" Command="{Binding NextTabCommand}" />
   </Window.KeyBindings>
 
   <Window.Styles>
@@ -85,6 +88,26 @@
       <Setter Property="Cursor" Value="Hand" />
     </Style>
 
+    <!-- Tab item -->
+    <Style Selector="Border.tab-item">
+      <Setter Property="MinWidth" Value="80" />
+      <Setter Property="MaxWidth" Value="200" />
+      <Setter Property="Height" Value="38" />
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Background" Value="{DynamicResource bg-panel}" />
+      <Setter Property="BorderThickness" Value="0,0,1,0" />
+      <Setter Property="BorderBrush" Value="{DynamicResource border}" />
+      <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style Selector="Border.tab-item.tab-active">
+      <Setter Property="Background" Value="{DynamicResource bg-editor}" />
+    </Style>
+
+    <Style Selector="Border.tab-item:pointerover">
+      <Setter Property="Background" Value="{DynamicResource bg-shell}" />
+    </Style>
+
   </Window.Styles>
 
   <Grid>
@@ -96,14 +119,111 @@
             Background="{DynamicResource bg-toolbar}"
             BorderBrush="{DynamicResource border}"
             BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="*,Auto,*">
-        <TextBlock Grid.Column="1"
-                   Text="{Binding WindowTitle}"
-                   HorizontalAlignment="Center"
-                   VerticalAlignment="Center"
-                   FontSize="13"
-                   FontWeight="Medium"
-                   Foreground="{DynamicResource text-primary}" />
+      <Grid ColumnDefinitions="Auto,*,Auto">
+
+        <!-- Col 0: App name -->
+        <StackPanel Grid.Column="0"
+                    Orientation="Horizontal"
+                    VerticalAlignment="Center"
+                    Margin="12,0,0,0"
+                    Spacing="0">
+          <TextBlock Text="GHS Markdown"
+                     FontSize="12"
+                     FontWeight="Medium"
+                     VerticalAlignment="Center"
+                     Foreground="{DynamicResource text-secondary}" />
+          <Border Width="1" Height="16"
+                  Background="{DynamicResource border}"
+                  Margin="10,0,0,0" />
+        </StackPanel>
+
+        <!-- Col 1: Tab strip -->
+        <ScrollViewer Grid.Column="1"
+                      HorizontalScrollBarVisibility="Hidden"
+                      VerticalScrollBarVisibility="Disabled"
+                      VerticalAlignment="Stretch">
+          <StackPanel Orientation="Horizontal"
+                      VerticalAlignment="Stretch"
+                      Spacing="0">
+
+            <!-- Tab items -->
+            <ItemsControl x:Name="TabStrip"
+                          ItemsSource="{Binding Tabs}">
+              <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                  <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+              </ItemsControl.ItemsPanel>
+              <ItemsControl.ItemTemplate>
+                <DataTemplate DataType="{x:Type vm:TabViewModel}">
+                  <Border Classes="tab-item"
+                          Classes.tab-active="{Binding IsActive}"
+                          x:Name="TabItemBorder">
+                    <Panel>
+                      <!-- Active accent underline -->
+                      <Border Height="2"
+                              VerticalAlignment="Bottom"
+                              Background="{DynamicResource accent}"
+                              IsVisible="{Binding IsActive}" />
+
+                      <!-- Tab content -->
+                      <StackPanel Orientation="Horizontal"
+                                  VerticalAlignment="Center"
+                                  Margin="10,0,6,0"
+                                  Spacing="4">
+
+                        <!-- Dirty dot -->
+                        <Ellipse Width="6" Height="6"
+                                 Fill="{DynamicResource accent}"
+                                 IsVisible="{Binding IsDirty}"
+                                 VerticalAlignment="Center" />
+
+                        <!-- Filename -->
+                        <TextBlock Text="{Binding DisplayName}"
+                                   FontSize="11"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource text-primary}" />
+
+                        <!-- Close button -->
+                        <Button Classes="icon-rail-btn"
+                                Width="16" Height="16"
+                                Padding="0"
+                                VerticalAlignment="Center"
+                                ToolTip.Tip="Close tab"
+                                Tag="{Binding}">
+                          <TextBlock Text="&#x2715;"
+                                     FontSize="9"
+                                     HorizontalAlignment="Center"
+                                     VerticalAlignment="Center"
+                                     Foreground="{DynamicResource text-hint}" />
+                        </Button>
+
+                      </StackPanel>
+                    </Panel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- New tab button -->
+            <Button Classes="icon-rail-btn"
+                    x:Name="NewTabButton"
+                    Width="28" Height="28"
+                    Padding="0"
+                    VerticalAlignment="Center"
+                    Margin="2,0,0,0"
+                    ToolTip.Tip="New Tab (Ctrl+T)">
+              <TextBlock Text="+"
+                         FontSize="16"
+                         HorizontalAlignment="Center"
+                         VerticalAlignment="Center"
+                         Foreground="{DynamicResource text-hint}" />
+            </Button>
+
+          </StackPanel>
+        </ScrollViewer>
+
+        <!-- Col 2: Right controls -->
         <StackPanel Grid.Column="2"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
@@ -152,7 +272,7 @@
                   Command="{Binding OpenExportCommand}"
                   Width="NaN" Height="26" Padding="8,0"
                   ToolTip.Tip="Export">
-            <TextBlock Text="Export…" FontSize="11" Foreground="{DynamicResource accent}" />
+            <TextBlock Text="Export&#x2026;" FontSize="11" Foreground="{DynamicResource accent}" />
           </Button>
           <Button Classes="icon-rail-btn"
                   Command="{Binding PrintCommand}"
@@ -169,6 +289,7 @@
             <TextBlock Text="Focus" FontSize="11" Foreground="{DynamicResource accent}" />
           </ToggleButton>
         </StackPanel>
+
       </Grid>
     </Border>
 

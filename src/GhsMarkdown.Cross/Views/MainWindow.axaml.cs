@@ -4,12 +4,14 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Highlighting;
 using AvaloniaEdit.Highlighting.Xshd;
 using GhsMarkdown.Cross.Models;
 using GhsMarkdown.Cross.Services;
 using GhsMarkdown.Cross.ViewModels;
+using System.ComponentModel;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -31,6 +33,7 @@ public partial class MainWindow : Window
     private EditorViewModel?            _editorVm;
     private MainWindowViewModel?        _mainVm;
     private SourceMappingService?       _sourceMappingService;
+    private FileService?                _fileService;
     private TopologyViewModel?          _topologyVm;
     private OutlineViewModel?           _outlineVm;
     private SnippetModeController?      _snippetModeController;
@@ -55,6 +58,10 @@ public partial class MainWindow : Window
     private double _rightPanelDragStartX;
     private double _rightPanelDragStartWidth;
     private Transitions? _rightPanelTransitions;
+
+    // ─── Tab switch state ────────────────────────────────────────────────────
+    private TabViewModel? _previousActiveTab;
+    private bool _tabSwitchInProgress;
 
     // ─── Scroll sync ──────────────────────────────────────────────────────────
     private bool   _isSyncingScroll;
@@ -104,11 +111,9 @@ public partial class MainWindow : Window
             .Select(f => f.Path.LocalPath)
             .FirstOrDefault(p => p.EndsWith(".md", StringComparison.OrdinalIgnoreCase));
 
-        if (mdFile is not null)
+        if (mdFile is not null && _mainVm is not null)
         {
-            var fileService = App.Services.GetService(typeof(FileService)) as FileService;
-            if (fileService is not null)
-                await fileService.OpenFile(mdFile);
+            await _mainVm.ActiveTab.FileService.OpenFile(mdFile);
         }
     }
 
@@ -116,10 +121,12 @@ public partial class MainWindow : Window
     {
         if (DataContext is not MainWindowViewModel vm) return;
         _mainVm = vm;
+        _previousActiveTab = vm.ActiveTab;
 
-        _editorVm             = App.Services.GetService(typeof(EditorViewModel))              as EditorViewModel;
-        _previewVm            = App.Services.GetService(typeof(PreviewViewModel))             as PreviewViewModel;
-        _sourceMappingService = App.Services.GetService(typeof(SourceMappingService))         as SourceMappingService;
+        _editorVm             = vm.ActiveTab.EditorViewModel;
+        _previewVm            = vm.ActiveTab.PreviewViewModel;
+        _sourceMappingService = vm.ActiveTab.SourceMappingService;
+        _fileService          = vm.ActiveTab.FileService;
         _topologyVm           = App.Services.GetService(typeof(TopologyViewModel))            as TopologyViewModel;
         _outlineVm            = App.Services.GetService(typeof(OutlineViewModel))             as OutlineViewModel;
         _snippetModeController   = App.Services.GetService(typeof(SnippetModeController))    as SnippetModeController;
@@ -164,36 +171,9 @@ public partial class MainWindow : Window
         InitializeLeftPanelSlot();
         InitializeRightPanelSlot();
 
-        // Exit snippet mode on file change (TextAnchors become invalid on document replace)
-        var fileService = App.Services.GetService(typeof(FileService)) as FileService;
-        if (fileService is not null)
-        {
-            fileService.PropertyChanged += (_, pe) =>
-            {
-                if (pe.PropertyName == nameof(FileService.CurrentFilePath))
-                    _snippetModeController?.Exit();
-            };
-
-            // Draft restore prompt
-            var editorVmRef = _editorVm;
-            fileService.DraftFound += async (_, args) =>
-            {
-                var formatted = args.DraftTimestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
-                var restore = await ShowDraftRestoreDialog(formatted);
-                if (restore)
-                {
-                    var draftContent = await File.ReadAllTextAsync(args.DraftPath);
-                    await fileService.OpenFileSkipDraftCheck(args.FilePath);
-                    if (editorVmRef is not null)
-                        editorVmRef.DocumentText = draftContent;
-                }
-                else
-                {
-                    fileService.DeleteDraft(args.FilePath);
-                    await fileService.OpenFileSkipDraftCheck(args.FilePath);
-                }
-            };
-        }
+        // Draft restore prompt (snippet-mode exit now handled in OnFileServicePropertyChanged)
+        if (_fileService is not null)
+            _fileService.DraftFound += OnDraftFound;
 
         // Wire SnippetStudioViewModel delegates
         var snippetStudioVm = App.Services.GetService(typeof(SnippetStudioViewModel)) as SnippetStudioViewModel;
@@ -269,7 +249,7 @@ public partial class MainWindow : Window
         var exportPanelVm = App.Services.GetService(typeof(ExportPanelViewModel)) as ExportPanelViewModel;
         if (exportPanelVm is not null)
         {
-            var fileSvcRef = App.Services.GetService(typeof(FileService)) as FileService;
+            var fileSvcRef = _fileService;
             var editorVmRef2 = _editorVm;
             exportPanelVm.ShowSaveDialogFunc = async format =>
             {
@@ -319,13 +299,7 @@ public partial class MainWindow : Window
 
         // Observe PreviewHtml changes to push to WebView
         if (_previewVm is not null)
-        {
-            _previewVm.PropertyChanged += (_, pe) =>
-            {
-                if (pe.PropertyName == nameof(PreviewViewModel.PreviewHtml))
-                    NavigateWebView(_previewVm.PreviewHtml);
-            };
-        }
+            _previewVm.PropertyChanged += OnPreviewVmPropertyChanged;
 
         // Observe view mode to update center layout
         _mainVm.PropertyChanged += (_, pe) =>
@@ -339,6 +313,258 @@ public partial class MainWindow : Window
                 sv?.RefreshColorPickers();
             }
         };
+
+        // Subscribe to tab switches
+        vm.PropertyChanged += (_, pe) =>
+        {
+            if (pe.PropertyName == nameof(MainWindowViewModel.ActiveTab)
+                && _mainVm?.ActiveTab is { } newTab)
+            {
+                SwitchActiveTab(newTab);
+            }
+        };
+
+        // Wire tab strip buttons
+        var newTabBtn = this.FindControl<Button>("NewTabButton");
+        if (newTabBtn is not null)
+            newTabBtn.Click += (_, _) => _mainVm?.NewTabCommand.Execute(null);
+
+        Dispatcher.UIThread.Post(() => WireTabStripInteraction(), DispatcherPriority.Loaded);
+    }
+
+    // ─── Per-tab named event handlers (extractable for tab switch) ─────────────
+
+    private void OnEditorVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.DocumentText)
+            && _editor is not null
+            && _editor.Document.Text != _editorVm?.DocumentText)
+        {
+            _editor.Document.Text = _editorVm?.DocumentText ?? string.Empty;
+        }
+    }
+
+    private void OnPreviewVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PreviewViewModel.PreviewHtml) && _previewVm is not null)
+            NavigateWebView(_previewVm.PreviewHtml);
+    }
+
+    private void OnFileServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileService.CurrentFilePath))
+        {
+            _snippetModeController?.Exit();
+            _mainVm?.UpdateWindowTitleFromTab(_mainVm.ActiveTab);
+            RefreshGitDiff(_fileService?.CurrentFilePath);
+        }
+    }
+
+    private void OnFileSaved(object? sender, EventArgs e)
+    {
+        RefreshGitDiff(_fileService?.CurrentFilePath);
+    }
+
+    private async void OnDraftFound(object? sender, DraftFoundEventArgs args)
+    {
+        var tab = _mainVm?.Tabs.FirstOrDefault(t => t.FileService == sender as FileService);
+        if (tab is null) return;
+
+        var fileService = tab.FileService;
+        var editorVm    = tab.EditorViewModel;
+
+        var formatted = args.DraftTimestamp.ToLocalTime().ToString("MMM d, yyyy h:mm tt");
+        var restore = await ShowDraftRestoreDialog(formatted);
+        if (restore)
+        {
+            var draftContent = await File.ReadAllTextAsync(args.DraftPath);
+            await fileService.OpenFileSkipDraftCheck(args.FilePath);
+            editorVm.DocumentText = draftContent;
+        }
+        else
+        {
+            fileService.DeleteDraft(args.FilePath);
+            await fileService.OpenFileSkipDraftCheck(args.FilePath);
+        }
+    }
+
+    // ─── Tab switching ──────────────────────────────────────────────────────────
+
+    private void SwitchActiveTab(TabViewModel newTab)
+    {
+        // Block ALL cross-component sync (scroll, highlight, WebView messages)
+        // until the tab switch fully settles.
+        _tabSwitchInProgress = true;
+
+        // Capture outgoing tab before _previousActiveTab is updated
+        var outgoingTab = _previousActiveTab;
+
+        // 0. Save scroll state of the tab we are leaving
+        if (_previousActiveTab is { } outgoing && outgoing != newTab)
+        {
+            outgoing.SavedScrollY       = _savedScrollY;
+            outgoing.SavedAnchorLine    = _lastSyncedAnchorLine;
+            outgoing.SavedEditorScrollY = _editor?.TextArea.TextView.ScrollOffset.Y ?? 0;
+            outgoing.SavedCaretLine     = _editor?.TextArea.Caret.Line ?? 1;
+        }
+        _previousActiveTab = newTab;
+
+        // 1. Unsubscribe from current per-tab services
+        if (_editorVm is not null)
+            _editorVm.PropertyChanged -= OnEditorVmPropertyChanged;
+        if (_previewVm is not null)
+            _previewVm.PropertyChanged -= OnPreviewVmPropertyChanged;
+        if (_fileService is not null)
+        {
+            _fileService.PropertyChanged -= OnFileServicePropertyChanged;
+            _fileService.FileSaved       -= OnFileSaved;
+            _fileService.DraftFound      -= OnDraftFound;
+        }
+
+        // 2. Swap references
+        _editorVm             = newTab.EditorViewModel;
+        _previewVm            = newTab.PreviewViewModel;
+        _sourceMappingService = newTab.SourceMappingService;
+        _fileService          = newTab.FileService;
+
+        // 3. Re-subscribe to new tab's services
+        _editorVm.PropertyChanged  += OnEditorVmPropertyChanged;
+        _previewVm.PropertyChanged += OnPreviewVmPropertyChanged;
+        _fileService.PropertyChanged += OnFileServicePropertyChanged;
+        _fileService.FileSaved       += OnFileSaved;
+        _fileService.DraftFound      += OnDraftFound;
+
+        // 4. Load new tab's document
+        _isSyncingScroll = true;
+
+        if (_editor is not null && _editor.Document.Text != _editorVm.DocumentText)
+            _editor.Document.Text = _editorVm.DocumentText ?? string.Empty;
+
+        // 4b. Restore scroll via IScrollable (bypasses ScrollViewer which ignores
+        // ScrollToVerticalOffset after Document.Text replacement).
+        if (_editor is not null)
+        {
+            var targetScrollY = newTab.SavedEditorScrollY;
+            var scrollable = (Avalonia.Controls.Primitives.IScrollable)_editor.TextArea.TextView;
+
+            // Set scroll directly on the TextView (IScrollable), not via ScrollViewer
+            scrollable.Offset = new Avalonia.Vector(scrollable.Offset.X, targetScrollY);
+
+            // Set caret to a visible line so BringCaretToView doesn't override scroll
+            var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
+            var firstVisible = lineHeight > 0 ? Math.Max(1, (int)(targetScrollY / lineHeight) + 1) : 1;
+            var caretLine = Math.Min(firstVisible, _editor.Document.LineCount);
+            _editor.TextArea.Caret.Offset = 0; // reset first to force change
+            _editor.TextArea.Caret.Line = caretLine;
+            _editor.TextArea.Caret.Column = 0;
+        }
+
+        _lastEditorSyncTime = DateTime.UtcNow;
+        _isSyncingScroll = false;
+
+        // Clear tab-switch guard after WebView settles.
+        // Do NOT call ScheduleHighlightUpdate here — its scrollIntoView causes
+        // a scroll drift via HandleScrollSync. The highlight will apply naturally
+        // on the user's next interaction.
+        _ = Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            await Task.Delay(500);
+            _tabSwitchInProgress = false;
+            _lastEditorSyncTime = DateTime.UtcNow;
+        });
+
+        // 5. Restore incoming tab's scroll state before preview reload
+        _savedScrollY         = newTab.SavedScrollY;
+        _lastSyncedAnchorLine = newTab.SavedAnchorLine;
+        _lastActiveSelector   = null;
+
+        // 6. Trigger preview reload (NavigateWebView uses _savedScrollY)
+        if (_webViewReady && _previewVm is not null)
+            NavigateWebView(_previewVm.PreviewHtml);
+
+        // 7. Refresh git diff for new file
+        RefreshGitDiff(_fileService.CurrentFilePath);
+
+        // 8. Update window title
+        _mainVm?.UpdateWindowTitleFromTab(newTab);
+
+        // 9. Notify ViewModel to rewire per-tab subscriptions (topology, outline, etc.)
+        if (outgoingTab is not null && outgoingTab != newTab)
+            _mainVm?.NotifyTabActivated(outgoingTab, newTab);
+
+        // 10. Reset gutter sync state — preview reloads on switch so sync is fresh
+        if (_mainVm is not null)
+            _mainVm.GutterSyncState = GutterSyncState.Synced;
+    }
+
+    // ─── Tab strip interaction ───────────────────────────────────────────────────
+
+    private void WireTabStripInteraction()
+    {
+        var tabStrip = this.FindControl<ItemsControl>("TabStrip");
+        if (tabStrip is null || _mainVm is null) return;
+
+        _mainVm.Tabs.CollectionChanged += (_, _) =>
+            Dispatcher.UIThread.Post(WireTabItemHandlers, DispatcherPriority.Loaded);
+
+        WireTabItemHandlers();
+    }
+
+    private void WireTabItemHandlers()
+    {
+        var tabStrip = this.FindControl<ItemsControl>("TabStrip");
+        if (tabStrip is null || _mainVm is null) return;
+
+        foreach (var tabVm in _mainVm.Tabs)
+        {
+            var container = tabStrip.GetVisualDescendants()
+                .OfType<Border>()
+                .FirstOrDefault(b => b.Classes.Contains("tab-item") && b.DataContext == tabVm);
+
+            if (container is null) continue;
+
+            // Avoid double-wiring
+            container.PointerPressed -= OnTabPointerPressed;
+            container.PointerPressed += OnTabPointerPressed;
+
+            // Wire close button
+            var closeBtn = container.GetVisualDescendants()
+                .OfType<Button>()
+                .FirstOrDefault(b => b.Tag is TabViewModel);
+            if (closeBtn is not null)
+            {
+                closeBtn.Click -= OnTabCloseClick;
+                closeBtn.Click += OnTabCloseClick;
+            }
+        }
+    }
+
+    private void OnTabPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is not Border border || border.DataContext is not TabViewModel tab) return;
+
+        var props = e.GetCurrentPoint(null).Properties;
+
+        if (props.IsMiddleButtonPressed)
+        {
+            _ = _mainVm?.CloseTabCommand.ExecuteAsync(tab);
+            e.Handled = true;
+            return;
+        }
+
+        if (props.IsLeftButtonPressed)
+        {
+            _mainVm?.SwitchTabCommand.Execute(tab);
+        }
+    }
+
+    private void OnTabCloseClick(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.Tag is TabViewModel tab)
+        {
+            _ = _mainVm?.CloseTabCommand.ExecuteAsync(tab);
+            e.Handled = true;
+        }
     }
 
     // ─── AvaloniaEdit ─────────────────────────────────────────────────────────
@@ -404,16 +630,7 @@ public partial class MainWindow : Window
 
         // Keep editor in sync when ViewModel text changes externally (Open, New)
         if (_editorVm is not null)
-        {
-            _editorVm.PropertyChanged += (_, pe) =>
-            {
-                if (pe.PropertyName == nameof(EditorViewModel.DocumentText)
-                    && _editor.Document.Text != _editorVm.DocumentText)
-                {
-                    _editor.Document.Text = _editorVm.DocumentText;
-                }
-            };
-        }
+            _editorVm.PropertyChanged += OnEditorVmPropertyChanged;
 
         RegisterEditorCommands();
 
@@ -470,19 +687,10 @@ public partial class MainWindow : Window
         _editor.TextArea.LeftMargins.Add(_gitDiffMargin);
 
         // Refresh diff on file open/save
-        var fileServiceRef = App.Services.GetService(typeof(FileService)) as FileService;
-        if (fileServiceRef is not null)
-        {
-            fileServiceRef.PropertyChanged += (_, pe) =>
-            {
-                if (pe.PropertyName == nameof(FileService.CurrentFilePath))
-                    RefreshGitDiff(fileServiceRef.CurrentFilePath);
-            };
-            fileServiceRef.FileSaved += (_, _) =>
-                RefreshGitDiff(fileServiceRef.CurrentFilePath);
-        }
+        _fileService!.PropertyChanged += OnFileServicePropertyChanged;
+        _fileService.FileSaved += OnFileSaved;
 
-        RefreshGitDiff(fileServiceRef?.CurrentFilePath);
+        RefreshGitDiff(_fileService.CurrentFilePath);
 
         AttachEditorContextMenu();
     }
@@ -1084,8 +1292,9 @@ public partial class MainWindow : Window
         if (_previewVm?.IsTimelinePreviewActive == true) return;
         InjectAllListeners();
 
-        // Re-apply highlight for current caret line
-        if (_editor is not null)
+        // Re-apply highlight for current caret line (skip during tab switch —
+        // the tab-switch guard will re-apply after settling)
+        if (_editor is not null && !_tabSwitchInProgress)
             ScheduleHighlightUpdate(_editor.TextArea.Caret.Line);
 
         // Re-inject focus mode styles if active (NavigateToString destroys injected styles)
@@ -1221,6 +1430,7 @@ public partial class MainWindow : Window
             switch (msg?.Type)
             {
                 case "scroll":
+                    if (_tabSwitchInProgress) break;
                     _savedScrollY = msg.ScrollY;
                     HandleScrollSync(msg.ScrollY, msg.ScrollH, msg.AnchorLine);
                     break;
@@ -1313,6 +1523,7 @@ public partial class MainWindow : Window
 
     private void HandleScrollSync(double scrollY, double scrollH, int? anchorLine)
     {
+        if (_tabSwitchInProgress) return;
         if (_mainVm?.CurrentViewMode != ViewMode.Split) return;
         if (_isSyncingScroll || _editor is null) return;
         if (_previewVm?.IsTimelinePreviewActive == true) return;
@@ -1435,6 +1646,7 @@ public partial class MainWindow : Window
 
     private void UpdateActiveBlockHighlight(int caretLine)
     {
+        if (_tabSwitchInProgress) return;
         if (!_webViewReady || _webView is null) return;
         if (_mainVm?.CurrentViewMode == ViewMode.Edit) return;
         if (_previewVm?.IsTimelinePreviewActive == true) return;
@@ -1492,6 +1704,7 @@ public partial class MainWindow : Window
 
     private void OnEditorScrollChanged(object? sender, EventArgs e)
     {
+        if (_tabSwitchInProgress) { return; }
         if (_isSyncingScroll || _editor is null) return;
         if (_previewVm?.IsTimelinePreviewActive == true) return;
 

@@ -33,6 +33,11 @@ public record AppSettings
 
     // BL-27: Right panel open width (drag-adjustable)
     public double RightPanelOpenWidth   { get; init; } = 200.0;
+
+    // BL-04: Tab persistence
+    public List<string?> OpenTabPaths  { get; init; } = new();   // null = untitled
+    public int           ActiveTabIndex { get; init; } = 0;
+    public int           MaxRestoredTabs { get; init; } = 10;
 }
 
 public class SettingsService

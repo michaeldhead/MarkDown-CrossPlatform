@@ -28,8 +28,8 @@ public partial class OutlineNodeViewModel : ObservableObject
 
 public partial class OutlineViewModel : ViewModelBase
 {
-    private readonly MarkdownParsingService _parsingService;
-    private readonly EditorViewModel _editorVm;
+    private MarkdownParsingService _parsingService;
+    private EditorViewModel _editorVm;
 
     public ObservableCollection<OutlineNodeViewModel> Nodes { get; } = new();
 
@@ -46,17 +46,34 @@ public partial class OutlineViewModel : ViewModelBase
         _parsingService = parsingService;
         _editorVm = editorVm;
 
-        _parsingService.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument))
-                ScheduleRebuild();
-        };
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged += OnEditorVmPropertyChanged;
+    }
 
-        _editorVm.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(EditorViewModel.CaretLine))
-                ScheduleActiveNodeUpdate(_editorVm.CaretLine);
-        };
+    private void OnParsingServicePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument))
+            ScheduleRebuild();
+    }
+
+    private void OnEditorVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(EditorViewModel.CaretLine))
+            ScheduleActiveNodeUpdate(_editorVm.CaretLine);
+    }
+
+    public void RewireParsingService(MarkdownParsingService newService, EditorViewModel newEditorVm)
+    {
+        _parsingService.PropertyChanged -= OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged -= OnEditorVmPropertyChanged;
+
+        _parsingService = newService;
+        _editorVm = newEditorVm;
+
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+        _editorVm.PropertyChanged += OnEditorVmPropertyChanged;
+
+        ScheduleRebuild();
     }
 
     [RelayCommand]

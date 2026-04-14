@@ -17,6 +17,7 @@ public class CenteringTextView : TextView
     protected override Type StyleKeyOverride => typeof(TextView);
 
     public bool TypewriterMode { get; set; }
+    public bool SuppressMakeVisible { get; set; }
 
     private bool _isCentering;
 
@@ -27,6 +28,8 @@ public class CenteringTextView : TextView
 
     public override void MakeVisible(Rect rectangle)
     {
+        if (SuppressMakeVisible) return;
+
         if (!TypewriterMode || _isCentering)
         {
             base.MakeVisible(rectangle);
@@ -100,5 +103,11 @@ public class CenteringTextEditor : TextEditor
     {
         get => TextArea.TextView.TypewriterMode;
         set => TextArea.TextView.TypewriterMode = value;
+    }
+
+    public bool SuppressMakeVisible
+    {
+        get => TextArea.TextView.SuppressMakeVisible;
+        set => TextArea.TextView.SuppressMakeVisible = value;
     }
 }
