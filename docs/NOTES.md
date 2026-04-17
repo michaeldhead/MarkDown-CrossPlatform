@@ -368,7 +368,7 @@ Run all commands from:
 
 ### Windows publish (self-contained)
 ```bash
-dotnet publish GhsMarkdown.Cross/src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj -r win-x64 -c Release --self-contained
+dotnet publish src/GhsMarkdown.Cross/GhsMarkdown.Cross.csproj -r win-x64 -c Release --self-contained
 ```
 Output: `GhsMarkdown.Cross/src/GhsMarkdown.Cross/bin/Release/net10.0/win-x64/publish/`
 

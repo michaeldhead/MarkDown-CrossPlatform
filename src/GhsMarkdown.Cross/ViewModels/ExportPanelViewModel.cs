@@ -10,8 +10,8 @@ namespace GhsMarkdown.Cross.ViewModels;
 public partial class ExportPanelViewModel : ObservableObject
 {
     private readonly ExportService _exportService;
-    private readonly MarkdownParsingService _parsingService;
-    private readonly EditorViewModel _editorVm;
+    private MarkdownParsingService _parsingService;
+    private EditorViewModel _editorVm;
     private readonly ThemeService _themeService;
 
     [ObservableProperty] private bool _isOpen;
@@ -47,11 +47,30 @@ public partial class ExportPanelViewModel : ObservableObject
         _editorVm = editorVm;
         _themeService = themeService;
 
-        _parsingService.PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument) && IsOpen)
-                SchedulePreviewRefresh();
-        };
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+    }
+
+    /// <summary>
+    /// Called on every tab switch to point the export panel at the
+    /// active tab's services. Mirrors the RewireParsingService pattern
+    /// used by TopologyViewModel and OutlineViewModel.
+    /// </summary>
+    public void RewireDocumentSource(EditorViewModel editorVm,
+        MarkdownParsingService parsingService)
+    {
+        _parsingService.PropertyChanged -= OnParsingServicePropertyChanged;
+
+        _editorVm = editorVm;
+        _parsingService = parsingService;
+
+        _parsingService.PropertyChanged += OnParsingServicePropertyChanged;
+    }
+
+    private void OnParsingServicePropertyChanged(object? sender,
+        System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MarkdownParsingService.ParsedDocument) && IsOpen)
+            SchedulePreviewRefresh();
     }
 
     public void Open()

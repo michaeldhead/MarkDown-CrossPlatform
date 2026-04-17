@@ -29,6 +29,11 @@
   <Color x:Key="bg-panel-color"   >#F2EFE8</Color>
   <Color x:Key="accent-color"     >#1A6BC4</Color>
 
+  <!-- Command Palette backdrop — softer dim in Light mode; 55% black over a
+       cream UI looks oppressively dark, 35% gives the card focus without
+       murdering the contrast of the underlying page. -->
+  <SolidColorBrush x:Key="palette-backdrop" Color="#1A1A1A" Opacity="0.35" />
+
   <x:String x:Key="ThemeName">GHS Light</x:String>
 
 </ResourceDictionary>

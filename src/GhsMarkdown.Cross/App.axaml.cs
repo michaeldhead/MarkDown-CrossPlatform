@@ -155,18 +155,12 @@ public partial class App : Application
         {
             // Background priority runs after Loaded (where restore runs),
             // so the CLI arg always opens after session restore completes.
+            // BL-34: route through OpenFileInTab so that a CLI path matching
+            // an already-restored tab just activates that tab.
             Dispatcher.UIThread.Post(async () =>
             {
                 var mainVm = Services.GetRequiredService<MainWindowViewModel>();
-
-                var activeTab = mainVm.ActiveTab;
-                bool activeIsOccupied = activeTab.FileService.CurrentFilePath is not null
-                                     || activeTab.IsDirty;
-
-                if (activeIsOccupied)
-                    mainVm.NewTabCommand.Execute(null);
-
-                await mainVm.ActiveTab.FileService.OpenFile(mdArg);
+                await mainVm.OpenFileInTab(mdArg);
             }, DispatcherPriority.Background);
         }
 
@@ -212,32 +206,37 @@ public partial class App : Application
                                  as ViewModels.MainWindowViewModel;
                         if (vm is null) return;
 
-                        // Bring main window to front
+                        // BL-36: bring main window to the foreground. On Windows,
+                        // Activate() alone is unreliable when a process other than
+                        // the foreground one calls it — the OS flashes the taskbar
+                        // icon instead of raising the window. The idiomatic
+                        // workaround is a brief Topmost toggle around Activate(),
+                        // which satisfies Windows' SetForegroundWindow rules
+                        // without leaving the window permanently above other apps.
                         var lifetime = Current?.ApplicationLifetime
                             as Avalonia.Controls.ApplicationLifetimes
                                 .IClassicDesktopStyleApplicationLifetime;
-                        lifetime?.MainWindow?.Activate();
+                        var mainWindow = lifetime?.MainWindow;
+                        if (mainWindow is not null)
+                        {
+                            if (mainWindow.WindowState == WindowState.Minimized)
+                                mainWindow.WindowState = WindowState.Normal;
+                            var wasTopmost = mainWindow.Topmost;
+                            mainWindow.Topmost = true;
+                            mainWindow.Activate();
+                            mainWindow.Topmost = wasTopmost;
+                        }
 
                         if (paths.Count == 0)
                             return; // activate only — no files to open
 
+                        // BL-34: OpenFileInTab dedupes — if the path is already
+                        // open in another tab, switch to it instead of creating
+                        // a duplicate. Otherwise load into the current empty tab
+                        // or spawn a new tab.
                         foreach (var path in paths)
                         {
-                            // If the active tab is untitled and empty, open in it.
-                            // Otherwise open a new tab.
-                            var activeTab = vm.ActiveTab;
-                            bool activeIsEmpty = activeTab.FileService.CurrentFilePath is null
-                                              && !activeTab.IsDirty;
-
-                            if (activeIsEmpty)
-                            {
-                                await activeTab.FileService.OpenFile(path);
-                            }
-                            else
-                            {
-                                vm.NewTabCommand.Execute(null);
-                                await vm.ActiveTab.FileService.OpenFile(path);
-                            }
+                            await vm.OpenFileInTab(path);
                         }
                     });
                 }

@@ -22,13 +22,41 @@
     <Style Selector="Button.palette-row.selected /template/ ContentPresenter">
       <Setter Property="Background" Value="{DynamicResource accent-dim}" />
     </Style>
+
+    <!-- Search input — the Fluent TextBox theme overrides Background on
+         pointerover/focus, which in GHS Light paints a white box over the
+         cream palette card. Force transparent at every state so the card
+         shows through, and force foreground/caret to theme tokens so they
+         remain readable in both Light and Dark. -->
+    <Style Selector="TextBox.palette-input">
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="Foreground"      Value="{DynamicResource text-primary}" />
+      <Setter Property="CaretBrush"      Value="{DynamicResource text-primary}" />
+      <Setter Property="SelectionBrush"  Value="{DynamicResource accent-dim}" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.palette-input /template/ Border#PART_BorderElement">
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.palette-input:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.palette-input:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background"      Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="TextBox.palette-input /template/ TextBlock#PART_Watermark">
+      <Setter Property="Foreground" Value="{DynamicResource text-hint}" />
+    </Style>
   </UserControl.Styles>
 
   <!-- Full-window overlay -->
   <Panel>
-    <!-- Backdrop -->
+    <!-- Backdrop (per-theme dimming layer — softer in Light than Dark) -->
     <Rectangle x:Name="Backdrop"
-               Fill="#8C000000"
+               Fill="{DynamicResource palette-backdrop}"
                HorizontalAlignment="Stretch"
                VerticalAlignment="Stretch" />
 
@@ -60,12 +88,10 @@
                        Margin="0,0,10,0" />
             <TextBox Grid.Column="1"
                      x:Name="SearchInput"
+                     Classes="palette-input"
                      Text="{Binding SearchText, Mode=TwoWay}"
                      PlaceholderText="Search commands..."
                      FontSize="14"
-                     Foreground="{DynamicResource text-primary}"
-                     Background="Transparent"
-                     BorderThickness="0"
                      VerticalAlignment="Center"
                      Padding="0,8" />
           </Grid>
@@ -105,15 +131,15 @@
                                  FontSize="13"
                                  Foreground="{DynamicResource text-primary}"
                                  VerticalAlignment="Center" />
-                      <!-- Keyboard shortcut -->
+                      <!-- Keyboard shortcut / hint -->
                       <TextBlock Grid.Column="2"
-                                 Text="{Binding KeyboardShortcut}"
+                                 Text="{Binding DisplayHint}"
                                  FontSize="11"
                                  Foreground="{DynamicResource text-hint}"
                                  FontFamily="Cascadia Code,Consolas,Menlo,monospace"
                                  VerticalAlignment="Center"
                                  Margin="0,0,12,0"
-                                 IsVisible="{Binding KeyboardShortcut, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                 IsVisible="{Binding DisplayHint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     </Grid>
                   </Button>
                 </DataTemplate>

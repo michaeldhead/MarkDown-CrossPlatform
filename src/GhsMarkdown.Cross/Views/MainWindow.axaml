@@ -166,26 +166,36 @@
                               Background="{DynamicResource accent}"
                               IsVisible="{Binding IsActive}" />
 
-                      <!-- Tab content -->
-                      <StackPanel Orientation="Horizontal"
-                                  VerticalAlignment="Center"
-                                  Margin="10,0,6,0"
-                                  Spacing="4">
+                      <!-- Tab content — BL-37: Grid keeps the close button pinned
+                           to the right edge while the filename column absorbs
+                           extra width via star sizing with ellipsis trimming.
+                           A StackPanel lets the filename push the close button
+                           off-screen on long names. -->
+                      <Grid VerticalAlignment="Center"
+                            Margin="10,0,6,0"
+                            ColumnDefinitions="Auto,*,Auto">
 
                         <!-- Dirty dot -->
-                        <Ellipse Width="6" Height="6"
+                        <Ellipse Grid.Column="0"
+                                 Width="6" Height="6"
                                  Fill="{DynamicResource accent}"
                                  IsVisible="{Binding IsDirty}"
-                                 VerticalAlignment="Center" />
+                                 VerticalAlignment="Center"
+                                 Margin="0,0,4,0" />
 
                         <!-- Filename -->
-                        <TextBlock Text="{Binding DisplayName}"
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding DisplayName}"
                                    FontSize="11"
                                    VerticalAlignment="Center"
-                                   Foreground="{DynamicResource text-primary}" />
+                                   TextTrimming="CharacterEllipsis"
+                                   ToolTip.Tip="{Binding DisplayName}"
+                                   Foreground="{DynamicResource text-primary}"
+                                   Margin="0,0,4,0" />
 
                         <!-- Close button -->
-                        <Button Classes="icon-rail-btn"
+                        <Button Grid.Column="2"
+                                Classes="icon-rail-btn"
                                 Width="16" Height="16"
                                 Padding="0"
                                 VerticalAlignment="Center"
@@ -198,7 +208,7 @@
                                      Foreground="{DynamicResource text-hint}" />
                         </Button>
 
-                      </StackPanel>
+                      </Grid>
                     </Panel>
                   </Border>
                 </DataTemplate>

@@ -464,6 +464,57 @@ public partial class MainWindowViewModel : ObservableObject
     public IReadOnlyList<TabViewModel> GetDirtyTabs() =>
         Tabs.Where(t => t.IsDirty).ToList();
 
+    // ─── Tab-aware file open (BL-34) ─────────────────────────────────────────
+
+    /// <summary>
+    /// Opens <paramref name="path"/>. If an existing tab already has this file
+    /// open (case-insensitive, full-path match), that tab is activated instead
+    /// of a new tab being created. If no match exists, the file is loaded into
+    /// the current tab when it is empty/untitled, otherwise a new tab is spawned.
+    /// Call this from any multi-tab entry point (file association / pipe, CLI
+    /// args, drag-and-drop). Ctrl+O's replace-in-current-tab semantics are
+    /// unchanged — that path still goes through <c>FileService.OpenFile</c> directly.
+    /// </summary>
+    public async Task OpenFileInTab(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return;
+
+        string normalized;
+        try { normalized = Path.GetFullPath(path); }
+        catch { normalized = path; }
+
+        var existing = Tabs.FirstOrDefault(t =>
+        {
+            var tp = t.FileService.CurrentFilePath;
+            if (tp is null) return false;
+            string tpNormalized;
+            try { tpNormalized = Path.GetFullPath(tp); }
+            catch { tpNormalized = tp; }
+            return string.Equals(tpNormalized, normalized, StringComparison.OrdinalIgnoreCase);
+        });
+
+        if (existing is not null)
+        {
+            // File already open — just switch to that tab. No new tab,
+            // no reload. If the tab is dirty the user's edits are preserved.
+            SwitchTabCommand.Execute(existing);
+            return;
+        }
+
+        // Not already open. Load into current tab if it is empty, else new tab.
+        var active = ActiveTab;
+        bool activeIsEmpty = active.FileService.CurrentFilePath is null && !active.IsDirty;
+        if (activeIsEmpty)
+        {
+            await active.FileService.OpenFile(path);
+        }
+        else
+        {
+            NewTabCommand.Execute(null);
+            await ActiveTab.FileService.OpenFile(path);
+        }
+    }
+
     // ─── Constructor ─────────────────────────────────────────────────────────
 
     public MainWindowViewModel(
@@ -669,7 +720,10 @@ public partial class MainWindowViewModel : ObservableObject
         {
             var path = ActiveTab.FileService.CurrentFilePath;
             var content = await Dispatcher.UIThread.InvokeAsync(() => ActiveTab.EditorViewModel.DocumentText);
-            if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(content))
+            //if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(content))
+            //    ActiveTab.FileService.WriteDraft(path, content);
+            if (!string.IsNullOrEmpty(path) && !string.IsNullOrEmpty(content)
+                && ActiveTab.FileService.HasUnsavedChanges)
                 ActiveTab.FileService.WriteDraft(path, content);
         }, null, draftInterval, draftInterval);
 
@@ -815,9 +869,10 @@ public partial class MainWindowViewModel : ObservableObject
         incoming.FileService.FileSaved       += OnActiveTabFileSavedForSnapshot;
         incoming.FileService.FileSaved       += OnActiveTabFileSavedDeleteDraft;
 
-        // Rewire Topology and Outline to incoming tab's services
+        // Rewire Topology, Outline, and Export to incoming tab's services
         _topologyVm.RewireParsingService(incoming.MarkdownParsingService, incoming.EditorViewModel);
         _outlineVm.RewireParsingService(incoming.MarkdownParsingService, incoming.EditorViewModel);
+        ExportPanel.RewireDocumentSource(incoming.EditorViewModel, incoming.MarkdownParsingService);
 
         // Reload timeline for the new tab's file
         _ = Timeline.ReloadSnapshots(incoming.FileService.CurrentFilePath);
