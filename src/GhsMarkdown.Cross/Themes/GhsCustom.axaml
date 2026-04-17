@@ -28,6 +28,10 @@
   <Color x:Key="bg-panel-color">#252526</Color>
   <Color x:Key="accent-color"  >#4A9EFF</Color>
 
+  <!-- Command Palette backdrop — same Dark-theme default; Custom theme starts
+       from Dark and the user can recolor chrome tokens if they pick Light. -->
+  <SolidColorBrush x:Key="palette-backdrop" Color="#000000" Opacity="0.55" />
+
   <x:String x:Key="ThemeName">GHS Custom</x:String>
 
 </ResourceDictionary>

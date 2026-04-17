@@ -1,3 +1,4 @@
+using AvaloniaEdit.Document;
 using CommunityToolkit.Mvvm.ComponentModel;
 using GhsMarkdown.Cross.Services;
 
@@ -17,6 +18,9 @@ public partial class TabViewModel : ObservableObject
     public FileService           FileService          { get; }
     public MarkdownParsingService MarkdownParsingService { get; }
     public SourceMappingService  SourceMappingService  { get; }
+
+    /// <summary>Per-tab TextDocument — owns its own UndoStack for isolated undo history.</summary>
+    public TextDocument Document { get; } = new TextDocument();
 
     // --- Tab display state -------------------------------------------------------
 
@@ -83,17 +87,14 @@ public partial class TabViewModel : ObservableObject
 
     private void WirePropertyNotifications()
     {
+        // FileService.PropertyChanged fires for both CurrentFilePath (→ DisplayName)
+        // and HasUnsavedChanges (→ IsDirty) since both are now ObservableProperty.
+        // No separate subscriptions to EditorViewModel.DocumentText or FileService.FileSaved
+        // are needed — the flag-based HasUnsavedChanges is the single source of truth.
         FileService.PropertyChanged += (_, _) =>
         {
             OnPropertyChanged(nameof(DisplayName));
             OnPropertyChanged(nameof(IsDirty));
         };
-        EditorViewModel.PropertyChanged += (_, pe) =>
-        {
-            if (pe.PropertyName == nameof(ViewModels.EditorViewModel.DocumentText))
-                OnPropertyChanged(nameof(IsDirty));
-        };
-        FileService.FileSaved += (_, _) =>
-            OnPropertyChanged(nameof(IsDirty));
     }
 }

@@ -30,6 +30,9 @@
   <Color x:Key="bg-panel-color">#252526</Color>
   <Color x:Key="accent-color"  >#4A9EFF</Color>
 
+  <!-- Command Palette backdrop — translucent dim over the main window. -->
+  <SolidColorBrush x:Key="palette-backdrop" Color="#000000" Opacity="0.55" />
+
   <!-- Theme name string for status bar -->
   <x:String x:Key="ThemeName">GHS Dark</x:String>
 

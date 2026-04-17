@@ -5,7 +5,13 @@ public record CommandDescriptor(
     string Title,
     string Category,
     Action Execute,
-    string? KeyboardShortcut = null);
+    string? KeyboardShortcut = null,
+    string? Hint = null)
+{
+    /// <summary>Right-side text rendered in the Command Palette row.
+    /// Prefers the explicit Hint; falls back to KeyboardShortcut when no hint is supplied.</summary>
+    public string? DisplayHint => string.IsNullOrEmpty(Hint) ? KeyboardShortcut : Hint;
+}
 
 public class CommandRegistry
 {

@@ -314,6 +314,22 @@ public partial class MainWindow : Window
             }
         };
 
+        // BL-32: hide the NativeWebView while the Command Palette is open.
+        // The WebView is an OS-level HWND that renders over all managed
+        // Avalonia UI regardless of ZIndex, so the palette card gets clipped
+        // on the right side in Split mode. Collapsing the preview column to
+        // 0px (the same trick Edit mode uses) removes the HWND from screen
+        // space. On close, UpdateCenterLayout() restores based on the current
+        // view mode.
+        _mainVm.CommandPalette.PropertyChanged += (_, pe) =>
+        {
+            if (pe.PropertyName != nameof(CommandPaletteViewModel.IsOpen)) return;
+            if (_mainVm.CommandPalette.IsOpen)
+                CollapsePreviewForPalette();
+            else
+                UpdateCenterLayout();
+        };
+
         // Subscribe to tab switches
         vm.PropertyChanged += (_, pe) =>
         {
@@ -342,6 +358,13 @@ public partial class MainWindow : Window
         {
             _editor.Document.Text = _editorVm?.DocumentText ?? string.Empty;
         }
+    }
+
+    private void OnEditorDocumentTextChanged(object? sender, EventArgs e)
+    {
+        if (_editor is not null && _editorVm is not null
+            && _editor.Document.Text != _editorVm.DocumentText)
+            _editorVm.DocumentText = _editor.Document.Text;
     }
 
     private void OnPreviewVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -434,33 +457,71 @@ public partial class MainWindow : Window
         _fileService.FileSaved       += OnFileSaved;
         _fileService.DraftFound      += OnDraftFound;
 
-        // 4. Load new tab's document
+        // 4. Swap TextDocument — each tab owns its own TextDocument instance,
+        // so the undo stack is naturally per-tab. No UndoStack.ClearAll() needed.
         _isSyncingScroll = true;
 
-        if (_editor is not null && _editor.Document.Text != _editorVm.DocumentText)
-            _editor.Document.Text = _editorVm.DocumentText ?? string.Empty;
-
-        // 4b. Restore scroll via IScrollable (bypasses ScrollViewer which ignores
-        // ScrollToVerticalOffset after Document.Text replacement).
         if (_editor is not null)
         {
-            var targetScrollY = newTab.SavedEditorScrollY;
-            var scrollable = (Avalonia.Controls.Primitives.IScrollable)_editor.TextArea.TextView;
+            // Unsubscribe TextChanged from the outgoing document to prevent
+            // the handler from pushing stale text to the wrong EditorViewModel.
+            _editor.Document.TextChanged -= OnEditorDocumentTextChanged;
+
+            // Swap to the incoming tab's document
+            _editor.Document = newTab.Document;
+
+            // If the document is empty but EditorViewModel has content
+            // (e.g. after a file open before the document was swapped),
+            // sync the content now.
+            if (_editor.Document.Text != _editorVm.DocumentText)
+                _editor.Document.Text = _editorVm.DocumentText ?? string.Empty;
+
+            // Re-subscribe TextChanged on the new document
+            _editor.Document.TextChanged += OnEditorDocumentTextChanged;
+        }
+
+        // 4b. Suppress MakeVisible until deferred scroll restore completes —
+        // prevents intermediate layout from scrolling to stale selection/caret.
+        if (_editor is not null)
+        {
+            _editor.SuppressMakeVisible = true;
+            _editor.TextArea.ClearSelection();
+        }
+
+        // 4c. Defer scroll/caret/selection restore to after layout. Document.Text
+        // replacement hasn't triggered a layout pass yet, so IScrollable.Offset
+        // would clamp to the OLD document's extent. DispatcherPriority.Loaded
+        // fires after the layout pass completes with the new content.
+        var capturedEditor = _editor;
+        var capturedTab = newTab;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (capturedEditor is null) return;
+
+            var targetScrollY = capturedTab.SavedEditorScrollY;
+            var scrollable = (Avalonia.Controls.Primitives.IScrollable)capturedEditor.TextArea.TextView;
 
             // Set scroll directly on the TextView (IScrollable), not via ScrollViewer
             scrollable.Offset = new Avalonia.Vector(scrollable.Offset.X, targetScrollY);
 
             // Set caret to a visible line so BringCaretToView doesn't override scroll
-            var lineHeight = _editor.TextArea.TextView.DefaultLineHeight;
+            var lineHeight = capturedEditor.TextArea.TextView.DefaultLineHeight;
             var firstVisible = lineHeight > 0 ? Math.Max(1, (int)(targetScrollY / lineHeight) + 1) : 1;
-            var caretLine = Math.Min(firstVisible, _editor.Document.LineCount);
-            _editor.TextArea.Caret.Offset = 0; // reset first to force change
-            _editor.TextArea.Caret.Line = caretLine;
-            _editor.TextArea.Caret.Column = 0;
-        }
+            var caretLine = Math.Min(firstVisible, capturedEditor.Document.LineCount);
+            capturedEditor.TextArea.Caret.Offset = 0;
+            capturedEditor.TextArea.Caret.Line = caretLine;
+            capturedEditor.TextArea.Caret.Column = 0;
 
-        _lastEditorSyncTime = DateTime.UtcNow;
-        _isSyncingScroll = false;
+            // Clear any carried-over selection (belt-and-suspenders — also cleared
+            // synchronously above, but another layout pass could re-introduce one)
+            capturedEditor.TextArea.ClearSelection();
+
+            capturedEditor.SuppressMakeVisible = false;
+
+            _lastEditorSyncTime = DateTime.UtcNow;
+            _isSyncingScroll = false;
+        }, DispatcherPriority.Background);
+        //}, DispatcherPriority.Loaded); // MDH
 
         // Clear tab-switch guard after WebView settles.
         // Do NOT call ScheduleHighlightUpdate here — its scrollIntoView causes
@@ -617,16 +678,24 @@ public partial class MainWindow : Window
             };
         }
 
-        // Push text changes to EditorViewModel
-        _editor.Document.TextChanged += (_, _) =>
+        // Assign the initial tab's document so undo history is scoped correctly
+        // from the very first keystroke. Without this, the editor starts with
+        // AvaloniaEdit's default TextDocument, not the TabViewModel's instance.
+        if (_mainVm?.ActiveTab is { } initialTab)
         {
-            if (_editorVm is not null && _editor.Document.Text != _editorVm.DocumentText)
-                _editorVm.DocumentText = _editor.Document.Text;
-        };
+            _editor.Document = initialTab.Document;
 
-        // Pull initial text from ViewModel
-        if (_editorVm is not null && !string.IsNullOrEmpty(_editorVm.DocumentText))
+            // Pull initial text from ViewModel into the tab's document
+            if (_editorVm is not null && !string.IsNullOrEmpty(_editorVm.DocumentText))
+                _editor.Document.Text = _editorVm.DocumentText;
+        }
+        else if (_editorVm is not null && !string.IsNullOrEmpty(_editorVm.DocumentText))
+        {
             _editor.Document.Text = _editorVm.DocumentText;
+        }
+
+        // Push text changes to EditorViewModel
+        _editor.Document.TextChanged += OnEditorDocumentTextChanged;
 
         // Keep editor in sync when ViewModel text changes externally (Open, New)
         if (_editorVm is not null)
@@ -850,6 +919,14 @@ public partial class MainWindow : Window
             Header = "Save",
             Command = _mainVm.SaveFileCommand,
             InputGesture = new Avalonia.Input.KeyGesture(Avalonia.Input.Key.S, Avalonia.Input.KeyModifiers.Control)
+        });
+        menu.Items.Add(new MenuItem
+        {
+            Header = "Save As\u2026",
+            Command = _mainVm.SaveFileAsCommand,
+            InputGesture = new Avalonia.Input.KeyGesture(
+                Avalonia.Input.Key.S,
+                Avalonia.Input.KeyModifiers.Control | Avalonia.Input.KeyModifiers.Shift)
         });
 
         // Change Language (visible only when caret is on a ``` fence line)
@@ -1133,6 +1210,22 @@ public partial class MainWindow : Window
                 CodeLanguagePickerWindow.Show(this, "Insert Code Block",
                     lang => InsertCodeBlock(lang));
             }));
+
+        // App — About dialog. Version read from assembly, not hardcoded.
+        var aboutVersion = System.Reflection.Assembly
+            .GetExecutingAssembly()
+            .GetName()
+            .Version;
+        var aboutHint = aboutVersion is null
+            ? "GHS Markdown"
+            : $"GHS Markdown v{aboutVersion.Major}.{aboutVersion.Minor}.{aboutVersion.Build}";
+        registry.Register(new CommandDescriptor(
+            "app.about",
+            "About GHS Markdown Editor",
+            "App",
+            () => new AboutWindow().Show(this),
+            null,
+            aboutHint));
     }
 
     // ─── NativeWebView ────────────────────────────────────────────────────────
@@ -2100,6 +2193,24 @@ public partial class MainWindow : Window
             _centerGrid.ColumnDefinitions[2] = new ColumnDefinition(1, GridUnitType.Star);
             if (_webView is not null) _webView.IsVisible = true;
         }
+    }
+
+    /// <summary>
+    /// BL-32: force an Edit-mode column layout while the Command Palette is
+    /// open. This removes the NativeWebView from screen space so the palette
+    /// card isn't clipped by the native HWND. The current view mode isn't
+    /// modified — when the palette closes, UpdateCenterLayout() re-reads
+    /// <see cref="MainWindowViewModel.CurrentViewMode"/> and restores the
+    /// original split/preview/edit layout.
+    /// </summary>
+    private void CollapsePreviewForPalette()
+    {
+        if (_centerGrid is null) return;
+
+        _centerGrid.ColumnDefinitions[0] = new ColumnDefinition(1, GridUnitType.Star);
+        _centerGrid.ColumnDefinitions[1] = new ColumnDefinition(0, GridUnitType.Pixel);
+        _centerGrid.ColumnDefinitions[2] = new ColumnDefinition(0, GridUnitType.Pixel);
+        if (_webView is not null) _webView.IsVisible = false;
     }
 
     // ─── Gutter drag handlers ─────────────────────────────────────────────────

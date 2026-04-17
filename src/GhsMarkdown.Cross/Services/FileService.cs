@@ -17,23 +17,43 @@ public partial class FileService : ObservableObject
     private readonly SettingsService _settingsService;
     private AppSettings _settings;
     private bool _skipDraftCheck;
+    private bool _suppressDirtyTracking;
 
     [ObservableProperty]
     private string? _currentFilePath;
 
+    /// <summary>
+    /// Flag-based dirty tracking. Previously this was computed as
+    /// <c>CurrentContent != _editor.DocumentText</c>, which silently broke
+    /// after save whenever line-ending normalization or any other transparent
+    /// text transform made the two strings unequal even after a successful
+    /// write. As an ObservableProperty, any change here fires PropertyChanged
+    /// automatically — <see cref="TabViewModel"/> only needs one subscription
+    /// on this service's PropertyChanged event to refresh IsDirty.
+    /// </summary>
+    [ObservableProperty]
+    private bool _hasUnsavedChanges;
+
     public event EventHandler? RecentFilesChanged;
     public event EventHandler<DraftFoundEventArgs>? DraftFound;
-
-    public string CurrentContent { get; private set; } = string.Empty;
-
-    public bool HasUnsavedChanges =>
-        CurrentContent != _editor.DocumentText;
 
     public FileService(EditorViewModel editor, SettingsService settingsService)
     {
         _editor = editor;
         _settingsService = settingsService;
         _settings = settingsService.Load();
+
+        // Any user edit of the document marks it dirty. Programmatic loads
+        // (OpenFile, NewFile, snapshot restore via DocumentText=) guard with
+        // _suppressDirtyTracking and explicitly reset the flag afterward.
+        _editor.PropertyChanged += (_, pe) =>
+        {
+            if (!_suppressDirtyTracking
+                && pe.PropertyName == nameof(EditorViewModel.DocumentText))
+            {
+                HasUnsavedChanges = true;
+            }
+        };
     }
 
     public async Task NewFile()
@@ -48,9 +68,12 @@ public partial class FileService : ObservableObject
             // Discard — fall through
         }
 
-        _editor.DocumentText = string.Empty;
+        _suppressDirtyTracking = true;
+        try { _editor.DocumentText = string.Empty; }
+        finally { _suppressDirtyTracking = false; }
+
         CurrentFilePath = null;
-        CurrentContent = string.Empty;
+        HasUnsavedChanges = false;
     }
 
     public async Task OpenFile(string? path = null)
@@ -114,8 +137,12 @@ public partial class FileService : ObservableObject
         var raw     = await File.ReadAllTextAsync(filePath);
         var content = raw.Replace("\r\n", "\n").Replace("\r", "\n");
         CurrentFilePath = filePath;
-        CurrentContent  = content;
-        _editor.DocumentText = content;
+
+        _suppressDirtyTracking = true;
+        try { _editor.DocumentText = content; }
+        finally { _suppressDirtyTracking = false; }
+
+        HasUnsavedChanges = false;
         AddToRecent(filePath);
     }
 
@@ -130,7 +157,7 @@ public partial class FileService : ObservableObject
         }
 
         await File.WriteAllTextAsync(CurrentFilePath, _editor.DocumentText);
-        CurrentContent = _editor.DocumentText;
+        HasUnsavedChanges = false;
         FileSaved?.Invoke(this, EventArgs.Empty);
     }
 
@@ -157,7 +184,7 @@ public partial class FileService : ObservableObject
 
         CurrentFilePath = file.Path.LocalPath;
         await File.WriteAllTextAsync(CurrentFilePath, _editor.DocumentText);
-        CurrentContent = _editor.DocumentText;
+        HasUnsavedChanges = false;
         FileSaved?.Invoke(this, EventArgs.Empty);
         AddToRecent(CurrentFilePath);
     }
