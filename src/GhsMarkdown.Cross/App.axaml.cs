@@ -22,6 +22,23 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // BL-45 round 2: Defensive swallow for the WebView2 MoveFocus
+        // ArgumentException if it still surfaces on the dispatcher (primary
+        // mitigation is Focusable="False" on the NativeWebView). The AppDomain
+        // handler was removed because this exception reports IsTerminating=true
+        // and cannot be swallowed from there.
+        Dispatcher.UIThread.UnhandledException += (_, e) =>
+        {
+            if (e.Exception is ArgumentException ax &&
+                ax.Message.Contains("Value does not fall within the expected range") &&
+                (ax.StackTrace?.Contains("MoveFocus") ?? false))
+            {
+                System.Diagnostics.Debug.WriteLine(
+                    "[BL-45] Swallowed WebView2 MoveFocus ArgumentException");
+                e.Handled = true;
+            }
+        };
+
         var services = new ServiceCollection();
 
         // Pre-construct per-tab services for the initial tab so that all

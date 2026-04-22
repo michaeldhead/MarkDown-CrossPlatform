@@ -640,8 +640,13 @@
                 IsVisible="{Binding PreviewPaneVisible}"
                 Background="{DynamicResource bg-preview}"
                 ClipToBounds="True">
+          <!-- BL-45: Focusable=False prevents Avalonia focus routing from
+               reaching the WebView2 controller. OnGotFocus → MoveFocus was
+               throwing ArgumentException on window restore. Mouse input and
+               JS↔.NET messaging (click-to-sync) are unaffected by Focusable. -->
           <NativeWebView x:Name="PreviewWebView"
                          IsVisible="{Binding PreviewPaneVisible}"
+                         Focusable="False"
                          HorizontalAlignment="Stretch"
                          VerticalAlignment="Stretch" />
         </Border>

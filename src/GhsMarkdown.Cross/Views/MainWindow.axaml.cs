@@ -100,6 +100,17 @@ public partial class MainWindow : Window
 
         // Close detached preview window when main window closes
         Closing += (_, _) => _detachedWindow?.Close();
+
+        // BL-45 round 2: The crash is in Avalonia's HandleActivated →
+        // SetFocusScope → NativeWebView.OnGotFocus → WebView2 MoveFocus.
+        // Focusable="False" on the NativeWebView (see XAML) prevents focus
+        // from being routed to it on restore. This Activated handler is a
+        // belt-and-braces pre-emption: force the editor to take focus when
+        // the window is activated so routing never targets the WebView.
+        Activated += (_, _) =>
+        {
+            try { _editor?.Focus(); } catch { }
+        };
     }
 
     private async void OnFileDrop(object? sender, DragEventArgs e)
