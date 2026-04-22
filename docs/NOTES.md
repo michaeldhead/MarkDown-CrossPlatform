@@ -950,3 +950,41 @@ opened for the CLI arg file.
 Save/Don't Save/Cancel dialog for each (with `ShowCloseUnsavedDialog` in `App.axaml.cs`),
 then closes. `_closingConfirmed` bool prevents the re-entrant `Closing` event (fired by
 the programmatic `Close()` call) from re-showing dialogs.
+---
+
+## BL-43 — DOCX Export Tables
+
+**Namespace ambiguity:** `TableRow` and `TableCell` exist in both
+`Markdig.Extensions.Tables` and `DocumentFormat.OpenXml.Wordprocessing`.
+Using `using Markdig.Extensions.Tables;` causes CS0104 ambiguity errors.
+Fix: fully qualify Markdig pattern matches as
+`Markdig.Extensions.Tables.TableRow` and `Markdig.Extensions.Tables.TableCell`,
+and OpenXml constructors as
+`DocumentFormat.OpenXml.Wordprocessing.TableRow()` /
+`DocumentFormat.OpenXml.Wordprocessing.TableCell()`.
+
+**Required trailing paragraph:** OpenXml requires at least one `Paragraph`
+after a `Table` in the document body — omitting it causes Word to crash or
+corrupt the file. Always append `new Paragraph()` after `body.Append(tbl)`.
+
+**Pipeline:** `MarkdownParsingService.Parse()` already uses
+`UseAdvancedExtensions()` which includes `UsePipeTables()` — no pipeline
+change needed for DOCX table export.
+
+---
+
+## BL-44 — Export Suggested Filename Stale Tab Reference
+
+**Root cause:** `ShowSaveDialogFunc` in `OnDataContextChanged` captured
+`_fileService` and `_editorVm` as locals (`fileSvcRef`, `editorVmRef2`) at
+wiring time. The lambda closed over these locals which always pointed to the
+initial tab's services regardless of tab switches.
+
+**Fix:** Remove the captured locals entirely. Call
+`GetSuggestedExportName(_fileService, _editorVm)` directly inside the lambda —
+`_fileService` and `_editorVm` are live fields that are updated on every tab
+switch, so the lambda always captures the current tab's values at call time.
+
+**Pattern to avoid:** Never capture `_fileService`, `_editorVm`, or any other
+per-tab field as a local variable in delegates wired during `OnDataContextChanged`.
+Always reference the live fields directly so tab switches are reflected.

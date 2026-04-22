@@ -4,6 +4,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using GhsMarkdown.Cross.Models;
 using Markdig;
+using Markdig.Extensions.Tables;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
 
@@ -215,6 +216,114 @@ public class ExportService
                         new BottomBorder { Val = BorderValues.Single, Size = 6, Color = "999999" }));
                 hrPara.Append(hrProps);
                 body.Append(hrPara);
+                break;
+
+            case Markdig.Extensions.Tables.Table mdTable:
+                var tbl = new DocumentFormat.OpenXml.Wordprocessing.Table();
+
+                // Table properties — simple grid with borders
+                var tblProps = new TableProperties(
+                    new TableBorders(
+                        new TopBorder    { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" },
+                        new BottomBorder { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" },
+                        new LeftBorder   { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" },
+                        new RightBorder  { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" },
+                        new InsideHorizontalBorder { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" },
+                        new InsideVerticalBorder   { Val = BorderValues.Single, Size = 4, Color = "AAAAAA" }
+                    ),
+                    new TableWidth { Width = "5000", Type = TableWidthUnitValues.Pct }
+                );
+                tbl.Append(tblProps);
+
+                foreach (var rowBlock in mdTable)
+                {
+                    if (rowBlock is not Markdig.Extensions.Tables.TableRow mdRow) continue;
+
+                    var tblRow = new DocumentFormat.OpenXml.Wordprocessing.TableRow();
+
+                    // Shade header row
+                    if (mdRow.IsHeader)
+                    {
+                        var trProps = new TableRowProperties(
+                            new TableHeader());
+                        tblRow.Append(trProps);
+                    }
+
+                    foreach (var cellBlock in mdRow)
+                    {
+                        if (cellBlock is not Markdig.Extensions.Tables.TableCell mdCell) continue;
+
+                        var tblCell = new DocumentFormat.OpenXml.Wordprocessing.TableCell();
+
+                        // Cell properties
+                        var tcProps = new TableCellProperties(
+                            new TableCellWidth { Type = TableWidthUnitValues.Auto });
+
+                        if (mdRow.IsHeader)
+                        {
+                            tcProps.Append(new Shading
+                            {
+                                Val = ShadingPatternValues.Clear,
+                                Color = "auto",
+                                Fill = "2F5496"
+                            });
+                        }
+                        tblCell.Append(tcProps);
+
+                        // Cell content — walk child blocks
+                        foreach (var cellChild in mdCell)
+                        {
+                            if (cellChild is ParagraphBlock cellPara)
+                            {
+                                var cellP = new Paragraph();
+                                if (mdRow.IsHeader)
+                                {
+                                    // Bold white text for header cells
+                                    var cellPProps = new ParagraphProperties();
+                                    cellP.Append(cellPProps);
+                                    foreach (var inline in cellPara.Inline ?? Enumerable.Empty<Markdig.Syntax.Inlines.Inline>())
+                                    {
+                                        if (inline is LiteralInline lit)
+                                        {
+                                            var hRun = new Run();
+                                            var hRunProps = new RunProperties(
+                                                new Bold(),
+                                                new Color { Val = "FFFFFF" });
+                                            hRun.Append(hRunProps);
+                                            hRun.Append(new Text(lit.Content.ToString())
+                                                { Space = SpaceProcessingModeValues.Preserve });
+                                            cellP.Append(hRun);
+                                        }
+                                        else
+                                        {
+                                            WriteInlines(cellP,
+                                                cellPara.Inline);
+                                            break;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    WriteInlines(cellP, cellPara.Inline);
+                                }
+                                tblCell.Append(cellP);
+                            }
+                        }
+
+                        // OpenXml requires at least one paragraph in every cell
+                        if (!tblCell.Elements<Paragraph>().Any())
+                            tblCell.Append(new Paragraph());
+
+                        tblRow.Append(tblCell);
+                    }
+
+                    tbl.Append(tblRow);
+                }
+
+                body.Append(tbl);
+                // Add an empty paragraph after the table so Word doesn't
+                // merge it with the next block
+                body.Append(new Paragraph());
                 break;
         }
     }

@@ -2,7 +2,7 @@
 > Living specification for the GHS Markdown Editor Avalonia app.
 > All phases must be fully verified against acceptance criteria before the next phase begins.
 > This document is the single source of truth. CC prompts are derived from it.
-> Version: 4.1 — BL-40 (export stale tab) and BL-41 (global key bleed) added.
+> Version: 4.9 — BL-44 complete, v1.1.2.
 
 
 ## Project Identity
@@ -13,7 +13,7 @@
 | Codename | GHS-MD-Cross |
 | Platform | Windows, macOS (via Avalonia UI). Linux deferred to post-v1.0. |
 | Companion apps | GHS Markdown Web (md.theheadfamily.com), GHS Markdown WPF |
-| Version target | v1.1.1 |
+| Version target | v1.1.2 |
 | Repository | https://github.com/michaeldhead/MarkDown-CrossPlatform |
 
 ---
@@ -287,6 +287,8 @@ Left to right: cursor position, word count, filename, theme badge, | (spacer) | 
 | BL-38 | Save As discoverability | Ctrl+Shift+S and Command Palette both work. Added "Save As…" to editor right-click context menu alongside existing Save item. | ✅ Complete |
 | BL-39 | Draft file created when no changes made | Draft timer guard: `&& ActiveTab.FileService.HasUnsavedChanges` added to `WriteDraft()` condition. | ✅ Complete |
 | BL-40 | Export panel uses stale tab reference | Export always uses first tab's content. `ExportPanelViewModel` captured initial tab's `EditorViewModel`/`FileService` at construction. Fix: converted `_parsingService` and `_editorVm` from `readonly` to mutable. Added `RewireDocumentSource(EditorViewModel, MarkdownParsingService)` with named `OnParsingServicePropertyChanged` handler (unsub old, sub new). Called from `MainWindowViewModel.NotifyTabActivated()` alongside topology/outline rewiring. No constructor-level call needed — initial DI injection already correct. | ✅ Complete |
+| BL-43 | DOCX export missing tables | Tables in Markdown were silently skipped — `WriteBlock()` had no case for `Markdig.Extensions.Tables.Table`. Fix: added table case to `WriteBlock()` in `ExportService.cs`. Builds OpenXml `Table` with full borders, header row shading (blue `2F5496` fill, white bold text), body cell content via `WriteInlines()`, and a trailing empty `Paragraph` to prevent Word merge issues. Pipeline already included table support via `UseAdvancedExtensions()` — no change needed. **Namespace note:** `TableRow` and `TableCell` exist in both `Markdig.Extensions.Tables` and `DocumentFormat.OpenXml.Wordprocessing` — fully qualify both pattern matches and constructors to avoid CS0104 ambiguity. | ✅ Complete |
+| BL-44 | Export suggested filename uses first tab instead of active tab | `ShowSaveDialogFunc` in `OnDataContextChanged` captured `_fileService` and `_editorVm` as locals at wiring time. On tab switch the live fields update but the captured locals do not. Fix: removed captured locals `fileSvcRef` and `editorVmRef2`; `GetSuggestedExportName()` now called with `_fileService` and `_editorVm` directly. | ✅ Complete |
 | BL-41 | Global key commands bleed across all tabs | Single shared `CenteringTextEditor`. Three related bugs fixed across three sessions: (1) **Selection bleed** — `Ctrl+A` selection remaps through `Document.Text` replacement covering entire new document. Fix: `_editor.TextArea.ClearSelection()` after caret restore in `SwitchActiveTab()`. (2) **Scroll bleed** — switching from longer to shorter tab clamps scroll to end of shorter document. Fix: deferred scroll/caret/selection restore via `Dispatcher.UIThread.Post(..., DispatcherPriority.Loaded)` so `DocumentHeight` reflects new content before offset is applied. `SuppressMakeVisible = true` set synchronously before deferred callback to block intermediate layout interference. `_isSyncingScroll` stays true until deferred callback completes. (3) **Undo bleed** — `UndoStack.ClearAll()` on tab switch (see BL-42 for undo history loss follow-up). | ✅ Complete (undo history loss tracked in BL-42) |
 | BL-42 | Undo history lost on tab switch | `UndoStack.ClearAll()` (BL-41 fix) severed undo history at tab boundaries. Fix: each `TabViewModel` owns its own `TextDocument` instance. `SwitchActiveTab()` swaps `_editor.Document` to the incoming tab's document rather than setting `Document.Text`. `UndoStack.ClearAll()` removed — each document carries its own stack. `OnEditorDocumentTextChanged` extracted from anonymous lambda to named method for unsub/resub during document swap. Initial tab document wiring required: `_editor.Document = initialTab.Document` added at end of `InitializeEditor()` before text load and handler subscription — without it, AvaloniaEdit's default `TextDocument` would own the initial tab's undo history and lose it on first switch. | ✅ Complete |
 
@@ -511,6 +513,6 @@ A phase is done when:
 
 ---
 
-*Version: 4.6*
-*Phase 1 through Phase 10 — ✅ COMPLETE. v1.0.0, v1.1.0, and v1.1.1 shipped.*
-*Last updated: Version target bumped to v1.1.1. Installer being built.*
+*Version: 4.9*
+*Phase 1 through Phase 10 — ✅ COMPLETE. v1.0.0, v1.1.0, v1.1.1, and v1.1.2 shipped.*
+*Last updated: BL-44 complete — export suggested filename now uses active tab. v1.1.2 released.*
