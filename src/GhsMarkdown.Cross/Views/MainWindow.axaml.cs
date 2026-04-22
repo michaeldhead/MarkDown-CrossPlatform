@@ -249,14 +249,12 @@ public partial class MainWindow : Window
         var exportPanelVm = App.Services.GetService(typeof(ExportPanelViewModel)) as ExportPanelViewModel;
         if (exportPanelVm is not null)
         {
-            var fileSvcRef = _fileService;
-            var editorVmRef2 = _editorVm;
             exportPanelVm.ShowSaveDialogFunc = async format =>
             {
                 var dlg = new Avalonia.Platform.Storage.FilePickerSaveOptions
                 {
                     Title = "Export",
-                    SuggestedFileName = GetSuggestedExportName(fileSvcRef, editorVmRef2),
+                    SuggestedFileName = GetSuggestedExportName(_fileService, _editorVm),
                     DefaultExtension = format switch
                     {
                         ExportFormat.PdfStyled => "pdf",
