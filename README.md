@@ -3,7 +3,7 @@
 A feature-rich Markdown editor for Windows and macOS, built with Avalonia UI.
 Part of the GHS Markdown Editor ecosystem.
 
-## What's New in v1.1.0
+## What's New in v1.1.2
 
 - **Multi-file tabs** — open multiple documents simultaneously in a tab strip built into the titlebar
 - **Tab persistence** — open tabs are restored on relaunch with the same active tab and scroll positions
